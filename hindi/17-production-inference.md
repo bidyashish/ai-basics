@@ -209,7 +209,109 @@ Multi-model routing 2026 में serious deployments के लिए default 
 
 ---
 
-## 6. एक Concrete Reference Design — Qwen 3.6-27B पर 10,000 chat QPS
+## 6. Memory Bandwidth — HBM3, HBM4, और User Actually क्या Feel करते हैं
+
+Fleet spec करने से पहले, LLM serving की एक सबसे counter-intuitive सच्चाई समझो: **inference के लिए, GPU memory bandwidth (HBM) chip TFLOPS से ज़्यादा matter करती है**। एक faster chip same memory के साथ आपको faster tokens नहीं देगा। ज़्यादातर teams ग़लत number के लिए pay करती हैं।
+
+### Decode Bandwidth-bound क्यों है, Compute-bound नहीं
+
+**Decode** phase में (वो part जिसका user actually wait करता है, token by token), GPU per byte loaded *almost कोई compute नहीं* करता है। एक single sequence के लिए हर new token को model के **हर weight** को HBM से Tensor Cores में read करना है, single-row activation के against एक tiny matmul करना है, और single-row output वापस write करना है। Tensor Cores underutilized बैठते हैं; bottleneck HBM pipe है।
+
+**Per-user decode tokens/sec** का rough upper bound exactly है:
+
+```
+tokens_per_sec_per_user  ≤  HBM_bandwidth (bytes/s)  /  model_size (bytes)
+```
+
+बस। कोई FLOPs term नहीं। More compute add करना prefill (compute-bound) में help करता है और batched decode में help करता है (जब bandwidth कई users के across amortize करती है), लेकिन ये *एक* user को faster generate करने में help नहीं करता।
+
+### HBM Generations और Actual Numbers
+
+| GPU | Memory | HBM gen | Bandwidth | BF16 TFLOPS | FP8 TFLOPS |
+|-----|--------|---------|-----------|-------------|------------|
+| A100 (2020) | 40-80 GB | HBM2e | 1.6-2.0 TB/s | 312 | — |
+| H100 (2022) | 80 GB | HBM3 | 3.35 TB/s | ~1000 | ~2000 |
+| H200 (2024) | 141 GB | HBM3e | 4.8 TB/s | ~1000 | ~2000 |
+| B200 (2024-2025) | 192 GB | HBM3e | 8.0 TB/s | ~2250 | ~4500 |
+| MI300X (AMD, 2024) | 192 GB | HBM3 | 5.3 TB/s | ~1300 | ~2600 |
+| GB300 / B300 (2025-2026) | 288 GB | HBM3e | 8.0 TB/s | similar | similar |
+| Rubin (Nvidia, late 2026) | 288 GB | **HBM4** | 13+ TB/s expected | — | — |
+| Rubin Ultra (2027) | 1 TB+ | **HBM4** | 20+ TB/s expected | — | — |
+
+देखो H100 → H200 के बीच क्या jump हुआ: FLOPs nearly identical हैं, लेकिन bandwidth 43% ऊपर गई। **Inference के लिए, H200 H100 से per user roughly 40% faster है — entirely HBM3e की वजह से।** ये एक real-world result है जिसे आप किसी भी vLLM benchmark पर verify कर सकते हो। Chip smarter नहीं हुआ; pipe fatter हुआ।
+
+Same story H200 → B200 (~67% bandwidth jump) से और B200 → Rubin/HBM4 (~60-100% bandwidth jump) से play out होती है।
+
+### Concrete Tokens/sec Ceilings
+
+कुछ real models लो और single-user ceiling compute करो। हम clarity के लिए bf16 weights use करते हैं; fp8 के लिए model size आधा करो।
+
+```
+Llama-3.1-8B (bf16, ≈ 16 GB):
+  H100 (3.4 TB/s):  16 / 3400 = 4.7 ms/tok  → ~213 tok/s ceiling
+  H200 (4.8 TB/s):  3.3 ms/tok  → ~303 tok/s
+  B200 (8.0 TB/s):  2.0 ms/tok  → ~500 tok/s
+  HBM4 (~13 TB/s):  1.2 ms/tok  → ~810 tok/s
+
+Qwen 3.6-27B (fp8, ≈ 27 GB):
+  H100:  27 / 3400 = 7.9 ms/tok  → ~127 tok/s
+  H200:  5.6 ms/tok  → ~178 tok/s
+  B200:  3.4 ms/tok  → ~296 tok/s
+  HBM4:  2.1 ms/tok  → ~480 tok/s
+
+Llama-3.1-70B (fp8, ≈ 70 GB):
+  H100 (एक card पर fit नहीं होगा; assume TP=2 → effective 6.7 TB/s aggregate, लेकिन overhead के साथ): ~80 tok/s realistic
+  B200 (एक card पर fits, 8 TB/s): ~110 tok/s
+  HBM4: ~190 tok/s
+```
+
+Practice में आप **theoretical ceiling का 60-80%** देखोगे attention reads, KV cache traffic, kernel launch overhead, और Python glue की वजह से। लेकिन GPUs के बीच ratios almost exactly hold करते हैं।
+
+### एक Coder क्या Feel करता है Tokens/sec में
+
+User इस number को directly *feel* करता है जब वो tokens को अपने editor या chat में stream होते देखता है:
+
+| User पर Tokens/sec | Subjective feel | Workflow पर effect |
+|--------------------|-----------------|--------------------|
+| 10 tok/s | "Painfully slow" | Tabs switch करेंगे, attention lost |
+| 25 tok/s | "Reading along" | सिर्फ़ short answers के लिए tolerable |
+| 50 tok/s | "Comfortable" | Chat के लिए good, code के लिए slow |
+| 80 tok/s | "Native feel" | Cursor / IDE assistant sweet spot |
+| 150 tok/s | "Instant" | Long answers Google search जैसे feel |
+| 300+ tok/s | "Faster than I read" | Reasoning chains, long agents |
+
+27B model use करने वाला coder canonical case है। H100 पर आप उन्हें ~120 tok/s पर serve करते हो — borderline native। B200 पर ये ~250 tok/s है — clearly native। HBM4 hardware पर ये ~400 tok/s है — वो model को entirely notice करना बंद कर देते हैं। **जिस hardware refresh के लिए आप pay करते हो वो ये change करता है कि आपका product broken feel होगा या magical।**
+
+**Reasoning models** के लिए effect और भी bigger है। एक `<think>...</think>` block 1,000-5,000 tokens हो सकता है। 50 tok/s पर वो user को *real* answer देखने से पहले 20-100 second wait है। 300 tok/s पर ये 3-15 seconds है। Same model, same quality — radically different product।
+
+**Agents** (Claude Code, Cursor agent, Devin-style) के लिए, loop में हर step एक full inference है। 30-step task 50 tok/s पर vs 300 tok/s पर 5 minutes और 50 seconds का difference है।
+
+### Batching Picture को क्यों Change करती है
+
+ऊपर सब कुछ **एक single user** के लिए था। जब आप एक decode step में B users batch करते हो, weights एक बार read होते हैं और B sequences के लिए use होते हैं। तो:
+
+```
+aggregate_tokens_per_sec  ≈  HBM_bandwidth / model_size  ×  effective_batch_size
+```
+
+एक बार batch fill हो जाए, आप compute-bound बन जाते हो, और *फिर* TFLOPs matter करते हैं। ये वो regime है जिसमें आपके throughput numbers रहते हैं।
+
+Catch: per-user TPOT bigger batch के साथ actually worse होता है। तो batching **revenue** (aggregate tokens) को **UX** (per-user speed) के against trade करता है। ज़्यादातर products एक `max_num_seqs` pick करते हैं जो TPOT targets hit करे।
+
+### इसके साथ क्या करें
+
+1. Inference fleets के लिए **GPUs को $/(TB/s) और $/GB से pick करो**, $/TFLOP से नहीं। Training के लिए calculus reverses — वहां compute most matter करता है।
+2. **Solo-user latency** (small batch) के लिए: आप जो highest-bandwidth GPU afford कर सकते हो उस पर run करो। H200/B200 2026 sweet spots हैं।
+3. **Batched throughput** के लिए: lots of medium-bandwidth GPUs price/perf के depending fewer high-bandwidth वालों को beat कर सकते हैं।
+4. **Quantization एक bandwidth multiplier है।** fp16 → fp8 जाना bytes-per-weight आधा करता है, same physical GPU के लिए effective HBM bandwidth double करता है। fp8 → int4 इसे फिर से double करता है। Quantization सिर्फ़ memory size के बारे में नहीं है; ये है कि tokens कितनी fast stream out होते हैं।
+5. **HBM4 wave को watch करो।** Rubin-class GPUs late 2026 / early 2027 में land होते हैं ~2× H200 bandwidth के साथ। Refresh cycles इसके आसपास plan करो; inference workloads पर ये एक step change है, incremental bump नहीं।
+6. **अपने users को tokens/sec बताओ, TFLOPS नहीं।** दो providers के बीच decide करते समय, उनके लिए सिर्फ़ वो number matter करता है कि उनके tokens कितनी fast आते हैं।
+
+2026 में inference engineers के लिए एक working slogan: **"compute rented है, bandwidth destiny है।"**
+
+---
+
+## 7. एक Concrete Reference Design — Qwen 3.6-27B पर 10,000 chat QPS
 
 Assumptions:
 - avg prompt 1500 tokens (heavy system prompt, first hit के बाद prefix-cached)।
@@ -327,7 +429,7 @@ class Router:
 
 ---
 
-## 7. Observability — क्या Log और Watch करें
+## 8. Observability — क्या Log और Watch करें
 
 हर serving system को इन dashboards की need होती है:
 
@@ -370,7 +472,7 @@ Stack: metrics के लिए **Prometheus + Grafana**, traces के लि�
 
 ---
 
-## 8. Reliability और Graceful Degradation
+## 9. Reliability और Graceful Degradation
 
 10k QPS = हर minute कुछ fail होता है। Designs जो survive करते हैं:
 
@@ -385,7 +487,7 @@ Stack: metrics के लिए **Prometheus + Grafana**, traces के लि�
 
 ---
 
-## 9. Autoscaling
+## 10. Autoscaling
 
 GPU autoscaling के दो cruel limits हैं:
 1. **Cold start ~ 60-180 s** (image pull + weight load + warmup)।
@@ -403,7 +505,7 @@ Ray Serve, KServe, और vLLM Production Stack सब इन patterns को re
 
 ---
 
-## 10. Cost और इसके बारे में कैसे सोचें
+## 11. Cost और इसके बारे में कैसे सोचें
 
 Rough 2026 unit economics (wildly varies):
 
@@ -426,7 +528,262 @@ Cost levers, ranked:
 
 ---
 
-## 11. Security & Abuse
+## 12. Token Caching — एक ही Context के लिए दो बार Pay मत करो
+
+एक correctly designed product कभी भी same tokens के लिए ख़ुद को (या अपने users को) दो बार charge नहीं करता। Caching तीन layers पर show होती है, और एक serious deployment तीनों use करती है।
+
+### तीन Cache Layers
+
+1. **Provider-side cached input** (जब external API call कर रहे हो)। Anthropic, OpenAI, Google, DeepSeek, और दूसरे previously-sent prefix से match होने वाले input tokens के लिए big discounts देते हैं।
+2. **Engine-side prefix cache / KV reuse** (जब self-hosting)। vLLM `--enable-prefix-caching` और SGLang RadixAttention prompt-prefix matches को free hits में बदलते हैं — अपनी infra में no compute, no billing।
+3. **Application-level response cache** (model के ऊपर)। Deterministic, repeat queries (FAQ, structured extraction, classification) के लिए, *output* store करो और model entirely skip करो।
+
+### Provider Cached-input Pricing (2026, public list rates)
+
+ये shift करते हैं, लेकिन orders of magnitude stable हैं।
+
+| Provider | Cached-read discount | Cache-write premium | Default TTL |
+|----------|---------------------|---------------------|-------------|
+| Anthropic Claude | **−90%** (input price का 10%) | First write पर +25% | 5 min (1 hr तक extendable) |
+| OpenAI | **−50%** (cached input half-price) | none | ~5-10 min sliding |
+| Google Gemini | **−75% to −80%** (context caching) | small storage fee | 1 hr default, configurable |
+| DeepSeek | **−90%** | none | 24 hr (KV-cache on disk) |
+| Mistral / Cohere | **−50%** | none | varies |
+
+एक **cache-write** पहली बार है जब आप एक prefix भेजते हो; provider उसके लिए KV cache store करता है। Subsequent requests जो same prefix hit करते हैं वो cached-read rate pay करते हैं। Most providers prefix bytes के hash से cache identify करते हैं, तो single-byte difference cache को break करता है।
+
+### Maximum Cache Hits के लिए Prompts Structure करना
+
+Prompt layout biggest lever है। Stable content first, dynamic content last। Cache एक prefix tree है — moment एक byte differ हो, prompt का बाकी हिस्सा "new" है और full rate पर billed होता है।
+
+```python
+# WRONG — start पर dynamic timestamp हर request पर cache को blow करता है
+messages = [
+    {"role": "system",
+     "content": f"Today is {datetime.utcnow()}. " + system_prompt}
+]
+
+# RIGHT — stable system prompt first, dynamic content last
+messages = [
+    {"role": "system", "content": stable_system_prompt},     # cached
+    {"role": "user",   "content": "<docs>" + retrieved_docs + "</docs>"},
+    *prior_turns,                                              # mostly cached
+    {"role": "user",   "content": current_user_msg},           # new, billed
+]
+```
+
+एक cleaner mental model: अपने prompt को **frozen** + **liquid** की तरह imagine करो। Front पर frozen (system prompt, tool schemas, few-shot examples, retrieved documents जो turns के across persist करते हैं), पीछे liquid (user का latest message)। Frozen layer को as long as possible बनाओ — वही part है जो cache होता है।
+
+### Anthropic-style Explicit Cache Control
+
+Anthropic का API आपको cache breakpoints mark करना require करता है — system को बताने के लिए useful है "इसके पहले सब कुछ reusable है":
+
+```python
+client.messages.create(
+    model="claude-opus-4-7",
+    system=[
+        {"type": "text",
+         "text": stable_system_prompt + tools_schema + few_shot_examples,
+         "cache_control": {"type": "ephemeral"}},   # breakpoint mark करता है
+    ],
+    messages=[
+        {"role": "user", "content": [
+            {"type": "text", "text": retrieved_docs,
+             "cache_control": {"type": "ephemeral"}},   # second cacheable block
+            {"type": "text", "text": user_message},     # cached नहीं
+        ]}
+    ],
+)
+```
+
+4 cache breakpoints तक allowed हैं; API हर prefix segment को independently cache करता है। आप last cached match के बाद सिर्फ़ suffix के लिए full price pay करते हो।
+
+### OpenAI-compatible: Cache Hits Automatic हैं
+
+OpenAI और most OpenAI-compatible APIs (vLLM के सहित) prefix के hash पर automatically cache करते हैं — **आप ask नहीं करते, आप बस prompts को structure करते हो ताकि prefixes verbatim repeat हों**। Response में एक `prompt_tokens_details.cached_tokens` field include होता है जो आपको बताता है कि कितने cached थे ताकि आप hit rate verify कर सको।
+
+```python
+resp = openai.chat.completions.create(model=..., messages=...)
+print(resp.usage.prompt_tokens_details.cached_tokens)  # इस metric को check करो
+```
+
+### Self-hosted: Same Cache, Free
+
+जब आप अपना खुद का model serve करते हो, prefix caching purely एक HBM tenancy game है। vLLM के साथ:
+
+```bash
+vllm serve Qwen/Qwen3.6-27B \
+    --enable-prefix-caching \
+    --enable-prefix-caching-hash sha256
+```
+
+In-flight या recent requests के across सारे identical prefixes same KV blocks reuse करते हैं। Stable system prompts पर 70-95% hit rates normal हैं। **Self-hosted prefix-cache hits आपको कुछ नहीं cost करते — zero compute, zero billing, cached bytes के लिए zero latency।**
+
+### Application-level Response Caching
+
+ऐसे requests के लिए जो हमेशा same output produce करते हैं, *output* को cache करो:
+
+```python
+import hashlib, redis, json
+
+r = redis.Redis()
+def cached_completion(model, messages, ttl=3600):
+    key = "llm:" + hashlib.sha256(
+        (model + json.dumps(messages, sort_keys=True)).encode()).hexdigest()
+    cached = r.get(key)
+    if cached:
+        return json.loads(cached)
+    out = call_llm(model, messages)
+    r.setex(key, ttl, json.dumps(out))
+    return out
+```
+
+Best targets: structured extraction, classification, deterministic single-turn FAQ bots, normalization tasks। User के name, account state जैसे personalized कुछ भी cache मत करो user से key namespace किए बिना।
+
+### चीज़ें जो Quietly Caching (और आपका Budget) Break करती हैं
+
+- **System prompt में timestamps, request IDs, या session IDs।** एक byte भी हर subsequent token को bust करता है।
+- Requests के बीच **messages या tools को re-order करना**।
+- **Mixed `temperature` / `top_p` / `seed`** API-level response caching के साथ (different sampling = different output)।
+- Routing में **Different models।** एक 4B-tier और एक 27B-tier caches share नहीं करते।
+- **Inconsistent serializers से whitespace differences।**
+- **Tool definitions के लिए partial JSON arrays।** एक canonical order pin करो, या आपको 100% miss मिलेगा।
+
+A cheap monitoring habit: per route `cached_tokens / prompt_tokens` log करो और alert करो अगर ये आपके baseline से 20% से ज़्यादा drop करे। ये almost always prompt structure में regression है।
+
+### Realistic Savings
+
+Typical chat product के लिए (1500-token system + 500-token rolling history + 200-token new user message), about **80% input tokens cacheable हैं**। Anthropic के 90% cached-read discount के साथ, ये **input bill पर ~70% off** बनता है। Self-hosted prefix-cache + fp8 के साथ, inputs essentially free हैं; सिर्फ़ output tokens और *new* prefix segment आपको cost करते हैं।
+
+ये quantization के beyond single largest cost lever है। Day one से इसके लिए build करो।
+
+---
+
+## 13. Pricing Strategy और Per-user-type Token Economics
+
+एक बार caching place में हो जाए, pricing एक question बनती है: हर user type *actually* कितने tokens per day consume करता है, और आप margin कितनी extract कर सकते हो जबकि competitive भी रहो? यहां calibration table है जिससे शुरू करो।
+
+### Per Archetype Token Consumption (2026 calibration)
+
+ये public usage data और instrumented production deployments से realistic averages हैं। आपके numbers vary होंगे, लेकिन archetypes के बीच *ratios* surprisingly stable हैं।
+
+| Archetype | Avg input/req | Avg output/req | Reqs/active hour | Active hrs/day | Daily input tok | Daily output tok | Monthly tokens (in+out) |
+|-----------|---------------|----------------|------------------|----------------|-----------------|------------------|-------------------------|
+| **Casual chat user** (occasional ChatGPT) | 800 | 250 | 4 | 0.5 | 1.6k | 500 | ~60 k |
+| **Power chat user** (writer, researcher) | 4 k | 1 k | 20 | 4 | 320 k | 80 k | ~12 M |
+| **Coder, autocomplete** (Tab-style) | 3 k (file ctx) | 80 (one line) | 60 | 6 | ~1 M | 30 k | ~30 M |
+| **Coder, IDE chat** (Cursor chat, Claude.ai code) | 8 k | 600 | 15 | 4 | ~480 k | 36 k | ~15 M |
+| **Coding agent** (Claude Code, Cursor agent, Devin) | 50 k (long ctx) | 3 k | 5 (per task) | 6 | ~1.5 M | 90 k | ~50 M |
+| **Code review agent** (per PR) | 25 k | 1.5 k | 2 | 8 | 50 k | 3 k | ~1.5 M |
+| **Bot user / API consumer** (mid-volume) | 2 k | 400 | 60 (continuous) | 24 | ~3 M | 580 k | ~110 M |
+| **Autonomous agent** (research, ops, 24/7) | 10 k | 1.5 k | 30 | 24 | ~7 M | 1 M | ~250 M |
+| **Customer support chatbot** (per ticket) | 1.2 k | 250 | varies | n/a | by # tickets | by # tickets | scales with traffic |
+| **Voice assistant** (transcribe + reply) | 800 | 200 | 30 | 1 | 24 k | 6 k | ~900 k |
+| **RAG / knowledge search** | 6 k (retrieved) | 400 | 8 | 2 | 96 k | 6.4 k | ~3 M |
+| **Translation / batch summarization** | 5 k | 5 k | 100 (batch) | 0.5 | 250 k | 250 k | ~15 M |
+| **Marketing / content tool** | 2 k | 800 | 5 | 1 | 10 k | 4 k | ~400 k |
+| **Tutor / education app** | 1 k | 600 | 30 | 2 | 30 k | 18 k | ~1.5 M |
+| **Reasoning research user** (heavy `<think>`) | 3 k | 5 k (mostly thinking) | 10 | 2 | 60 k | 100 k | ~5 M |
+
+कुछ चीज़ें notice करो:
+- **Output tokens typically input tokens से 5-10× ज़्यादा expensive हैं** produce करने के लिए (decode memory-bound है)। Accordingly charge करो।
+- **Coding agents chat users से per user 20-50× ज़्यादा expensive हैं।** वो per step long context burn करते हैं और per task dozens of steps run करते हैं।
+- **24/7 चलने वाले Bots agents को भी dwarf करते हैं** — वो effectively एक account में compressed कई users हैं।
+- **Reasoning users output tokens को 5-10× तक push करते हैं** क्योंकि उनमें से ज़्यादातर tokens thinking हैं, visible answer नहीं।
+
+### Cost-per-user Math
+
+एक representative API rate लो (model से vary होता है, ये एक 2026 mid-tier estimate है):
+
+```
+input  (uncached): $3.00 / M tokens
+input  (cached):   $0.30 / M tokens   ← 90% off
+output:            $15.00 / M tokens
+```
+
+अब per user monthly cost compute करो, मानते हुए कि 80% input cacheable है (well-structured prompts):
+
+| Archetype | Monthly in (M) | Monthly out (M) | Effective in $ | Out $ | **Total / user / month** |
+|-----------|---------------|-----------------|----------------|-------|--------------------------|
+| Casual chat | 0.05 | 0.01 | $0.03 | $0.15 | **$0.18** |
+| Power chat | 9.6 | 2.4 | $5.18 | $36 | **$41** |
+| Coder autocomplete | 30 | 0.9 | $16.20 | $13.50 | **$30** |
+| Coder IDE chat | 14.4 | 1.1 | $7.78 | $16.20 | **$24** |
+| Coding agent | 45 | 2.7 | $24.30 | $40.50 | **$65** |
+| Code review agent | 1.5 | 0.09 | $0.81 | $1.35 | **$2.16** |
+| Bot user | ~90 | 17 | $48.60 | $261 | **$310** |
+| Autonomous agent | ~210 | 30 | $113 | $450 | **$563** |
+| Voice assistant | 0.72 | 0.18 | $0.39 | $2.70 | **$3.10** |
+| RAG search | 2.9 | 0.19 | $1.55 | $2.85 | **$4.40** |
+| Reasoning research | 1.8 | 3 | $0.97 | $45 | **$46** |
+
+Two observations:
+1. **"Casual chat" और "coding agent" के बीच cost gap ~360× है।** एक pricing plan जो सारे users को same treat करे coding agents पर पैसे खोएगा और casual users को overcharge करेगा।
+2. **Almost हर category के लिए Output bill को dominate करता है।** इसलिए "fast tokens" hardware (HBM bandwidth, §6) directly better margin के बराबर है — आप per GPU-hour ज़्यादा output tokens serve करते हो।
+
+### Pricing Strategy Patterns
+
+कोई single "right" pricing model नहीं है, लेकिन 2026 LLM products में चार patterns dominate करते हैं:
+
+1. **Freemium + small-model free tier।** Casual users एक 1-3B model पर (subsidised, near-free in cost), upgrades paywall के पीछे। Examples: ChatGPT free, Claude.ai free, Gemini free।
+2. **Token quotas वाले Per-month plans।** Tiers like $20 → 20M tokens, $100 → 200M tokens। Plan ~80% users को cover करता है; heavy users per-token billing में overflow होते हैं या politely throttled। ज़्यादातर consumer LLM products।
+3. **Per-token PAYG (API)।** Per million tokens cost-plus-margin, separate input/output rates, separate cached input rate। Anthropic / OpenAI / DeepSeek model। किसी भी serious developer audience के लिए required।
+4. **Tiered model pricing।** Small model unlimited (या generous), big model request count या token volume द्वारा gated। Coding-agent-class users को सही plan में self-select करने देता है।
+
+Most successful products 2 और 4 combine करते हैं: एक token cap के साथ flat plan, small/big tier user के लिए auto-selected।
+
+### Margin Math
+
+```
+Per million output tokens revenue:  $15
+Per million output tokens cost:     $1.50  (well-utilized fp8 27B, on-prem)
+Gross margin:                        90%
+
+Per million cached input revenue:   $0.30
+Per million cached input cost:      ~$0.05  (prefix cache के साथ almost free)
+Gross margin:                        ~83%
+```
+
+Fixed costs (idle replicas, support, R&D, edge infra, payment fees) के बाद, real net margin self-hosted product के लिए **50-70%** के आसपास lands है, **20-40%** अगर आप किसी और का API resell कर रहे हो।
+
+### Caps: Agent-loop Bankruptcy Problem
+
+एक poorly-designed agent 100,000 tokens `<think>` के लिए recurse कर सकता है, tool failure पर 50,000 retry-loop और chew up कर सकता है, और 90 minutes में एक year के free credits खा सकता है। Real failure mode जिसने कई companies को hit किया है। हमेशा implement करो:
+
+- **Per-request `max_tokens` cap** (chat के लिए 10-32k; explicit agent endpoints के लिए 100-200k)।
+- **Per-conversation token budget** (e.g., warning से पहले एक chat session पर 200k cumulative)।
+- **Per-user daily quota** 80% पर warning, 100% पर hard cap के साथ।
+- **Spend alerts** $10, $50, $100 per user पर (configurable)।
+- **Soft kill** — जब user threshold cross करे तो उसे smaller model पर switch करो।
+- **Hard kill** — clear `"budget_exceeded"` body के साथ 429 return करो।
+- **Idle-loop detector** — tool-retry loop में stuck agents (same tool call N times) circuit breaker trip करते हैं।
+
+इन्हें defaults बनाओ, opt-in नहीं।
+
+### Anti-pricing-mistakes Checklist
+
+- Input और output को same price मत करो। Output 5-10× ज़्यादा expensive है।
+- Cache-hit rate को ignore मत करो। Caching के बिना product के unit costs एक caching वाले से 5-10× higher हैं।
+- Agents को unbounded run मत करने दो। 99th-percentile token usage measure करो; उसके लिए build करो, median के लिए नहीं।
+- Reasoning tokens को normal output की तरह price मत करो — वो 5× ज़्यादा numerous हो सकते हैं।
+- Flat resell मत करो। हमेशा whales के लिए usage-based component रखो।
+- Users को bills से surprise मत करो। UI में running token counters दिखाओ।
+
+### A Worked Example: एक Coding Tool Pricing करना
+
+आप एक Cursor-style assistant build करते हो। Target user: **coder IDE chat** archetype (~$24/user/month at API cost)।
+
+- Build cost: full caching के साथ API rates पर ~$24 raw।
+- Infra, support, R&D overhead add करो: ~$32 effective fully loaded cost।
+- Target gross margin 60% → list price $80/month।
+- Market reality: competitors $20/month हैं Cursor-Pro-tier offerings के लिए।
+- **Solution**: 70% traffic को cheaper small model पर route करो (blended cost ~$10 तक drop), big model को $40/month पर metered overage के साथ power users को gated "max-tier" feature बनाओ।
+
+ये exactly वो multi-tier strategy है जिस पर हर successful 2026 coding tool converged है। **Hardware bandwidth, caching, smart routing, और user-archetype pricing सब same equation में stack होते हैं: per million tokens served आप कितनी margin keep करते हो।**
+
+---
+
+## 14. Security & Abuse
 
 Public API पर 10k QPS attention attract करता है।
 
@@ -441,7 +798,7 @@ Public API पर 10k QPS attention attract करता है।
 
 ---
 
-## 12. Traffic से पहले Rig Test करना
+## 15. Traffic से पहले Rig Test करना
 
 DNS flip करने से पहले, run करो:
 
@@ -451,47 +808,55 @@ DNS flip करने से पहले, run करो:
 4. **Long-context test** — 100k tokens पर कुछ requests। Verify वो everyone को starve नहीं करते।
 5. **Burst test** — 10 seconds में 0 → target QPS के 1.5×। Queue depth और TTFT देखो।
 6. **Tenant isolation** — different system prompts के साथ दो simulated tenants, prefix cache hashing में no leakage verify करो।
+7. **Cache regression test** — canonical traffic के लिए `cached_tokens / prompt_tokens` measure करो और alert करो अगर ये 20% से ज़्यादा drift करे।
+8. **Cost-cap test** — एक runaway agent loop simulate करो और verify करो कि spend cap seconds में fire करे, $1,000 bill के बाद नहीं।
 
 ये सब एक staging environment में करो जो prod को mirror करे। ये step skip करना वो है जिससे आप hard way से सीखते हो कि vLLM का `max_num_seqs` too low set था।
 
 ---
 
-## 13. एक One-page Checklist
+## 16. एक One-page Checklist
 
 इसे "production" call करने से पहले:
 
 - [ ] Engine: vLLM या SGLang FP8 weights + KV के साथ।
-- [ ] Prefix caching enabled।
+- [ ] Engine पर Prefix caching enabled **और** cache hits के लिए designed prompt structure।
 - [ ] Chunked prefill enabled।
 - [ ] Decode-heavy traffic के लिए Speculative decoding (MTP / EAGLE)।
 - [ ] अपने SLOs के लिए `max_num_seqs` और `max_num_batched_tokens` tuned।
 - [ ] एक classifier के साथ Two-tier model routing (small/big)।
 - [ ] Prefix-aware sticky load balancing।
+- [ ] Hardware HBM bandwidth और capacity से chosen, सिर्फ़ FLOPs से नहीं।
 - [ ] Health checks जो एक real completion exercise करें।
-- [ ] Prometheus metrics + Grafana dashboards (TTFT, TPOT, queue depth, KV usage)।
-- [ ] TTFT P95, queue depth, 5xx rate, KV usage पर Alerts।
+- [ ] Prometheus metrics + Grafana dashboards (TTFT, TPOT, queue depth, KV usage, cache hit rate)।
+- [ ] TTFT P95, queue depth, 5xx rate, KV usage, cache-hit drift पर Alerts।
 - [ ] Sensible floor के साथ Autoscaler, leading indicator पर scale-up।
 - [ ] Per-tenant rate limits और quotas।
+- [ ] Per-user spend caps और idle-agent-loop detection।
 - [ ] Traceability के लिए Per-request `request_id` header।
 - [ ] Multi-region या at minimum multi-zone deployment।
-- [ ] Soak + load + chaos tested।
+- [ ] Soak + load + chaos + cache-regression + cost-cap tested।
 - [ ] On-call runbook: कैसे roll back करें, कैसे एक node drain करें, कैसे quotas bump करें।
 
 अगर कोई item "no" या "I think so" है, आपके पास अभी 10k-QPS-grade system नहीं है।
 
 ---
 
-## 14. 2026 Cheat Sheet
+## 17. 2026 Cheat Sheet
 
 - **vLLM safe default है। Prefix-heavy workloads के लिए SGLang। Max throughput के लिए TRT-LLM।**
 - H100/B200 पर **FP8 weights + FP8 KV**।
-- Chat के लिए **Prefix caching** biggest free win है।
+- **HBM bandwidth, FLOPs नहीं**, per-user tokens/sec set करता है। सबसे fattest pipe वाला GPU buy करो।
+- Chat के लिए **Prefix caching** biggest free win है — prompts को frozen-then-liquid के रूप में design करो।
 - **Speculative decoding** (MTP / EAGLE-3) second biggest है।
 - **Easy queries एक smaller model पर route करो।** Scale पर एक big model से two tiers > अच्छा है।
 - ~2k QPS से ऊपर या very long contexts के लिए **Prefill/decode disaggregation**।
 - सिर्फ़ QPS नहीं, **Queue depth पर autoscale करो**।
 - **Cold start 1-3 minutes है** — एक generous floor रखो।
 - **Optimization से पहले Observability।** जो आप देख नहीं सकते उसे fix नहीं कर सकते।
+- "user" से नहीं, **archetype से Price करो**। Coding agents एक casual chat user से 360× cost करते हैं।
+- **Output tokens cached input से 5-10× ज़्यादा expensive हैं।** उन्हें differently bill करो।
+- **हर चीज़ Cap करो** — per-request, per-conversation, per-day, per-spend। Agent loops कोई भी uncapped budget find कर लेंगे।
 - **Frontier-quality chat के 10k QPS ≈ 50-150 GPUs**, जो एक order-of-magnitude reality check है जिसे ज़्यादातर teams under-estimate करती हैं।
 
 ---
@@ -503,7 +868,9 @@ DNS flip करने से पहले, run करो:
 - **NVIDIA NIM / TensorRT-LLM cookbook** — NVIDIA-native deployments के लिए।
 - **DeepSeek inference paper (2024)** — disaggregated prefill/decode architecture explained।
 - **Ray Serve LLM tutorial** — K8s पर autoscaling के साथ multi-replica vLLM।
+- **Anthropic, OpenAI, Google cache-control docs** — provider-side caching pricing और TTLs के लिए canonical references।
+- **NVIDIA HBM3e / HBM4 hardware briefs** और Tim Dettmers की GPU buying guide — marketing के बजाय memory पर hardware decisions लेने के लिए।
 - **k6 + genai-perf** — load testing toolkits actually streaming token APIs के लिए designed।
 - **OpenAI / Anthropic public API SLOs और incident postmortems** — production LLM serving scale पर कैसा दिखता है उसके most honest accounts।
 
-That's curriculum का end. अगर आपने chapters 00 → 17 पढ़े, आप अब एक small LM pretrain, scratch से build, fine-tune, quantize, और दस हज़ार users को serve कर सकते हो। **अब कुछ ship करो।**
+That's curriculum का end. अगर आपने chapters 00 → 17 पढ़े, आप अब एक small LM pretrain, scratch से build, fine-tune, quantize, और दस हज़ार users को serve कर सकते हो खुद को bankrupt किए बिना। **अब कुछ ship करो।**
