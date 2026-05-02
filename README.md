@@ -43,11 +43,12 @@ The chapters build on each other. If you only have time for a fast tour, read th
 | 22 | [Multimodal Models](./22-multimodal.md) | VLM architectures, SigLIP-2, native multi-resolution, audio (Whisper, Realtime), QLoRA for VLMs, hallucination evals. |
 | 23 | [Safety & Alignment](./23-safety-and-alignment.md) | Four kinds of safety, prompt injection, content moderation, red-teaming with PyRIT, compliance (EU AI Act, GDPR). |
 | 24 | [Gemma 4 Deep Dive](./24-gemma-4-deep-dive.md) | Full Gemma 4 reference: vocabulary glossary, architecture (PLE, hybrid attention, p-RoPE), dtype guide, real tok/s benchmarks, multimodal, thinking mode, end-to-end script. |
+| 25 | [Model Releases & Debugging](./25-model-releases-and-debugging.md) | The release ladder (major/minor/point/patch), continual vs fresh pretrain, tool stack per role, looking inside the model with hooks, TransformerLens, logit lens, ablation, activation patching, SAEs. |
 
 ## How to use this guide
 
 1. **Start with [00-essential-math.md](./00-essential-math.md)** if any of "matrix multiplication / chain rule / softmax / cross-entropy" sound fuzzy. It takes 30 minutes and the rest of the book reads twice as fast afterward.
-2. **Read 01-23 in order** the first time. 00-03 are foundations. 04-13 build the model. 14-15 train it. 16-17 deploy frontier-class models. 18 wraps it in a product. 19-23 are the operational maturity layer: evaluating, fine-tuning, RAG, multimodal, and keeping it all safe. **24 is a focused Gemma 4 reference** with vocabulary, real benchmarks, and runnable code — read it standalone whenever you reach for Gemma.
+2. **Read 01-23 in order** the first time. 00-03 are foundations. 04-13 build the model. 14-15 train it. 16-17 deploy frontier-class models. 18 wraps it in a product. 19-23 are the operational maturity layer: evaluating, fine-tuning, RAG, multimodal, and keeping it all safe. **24 is a focused Gemma 4 reference** with vocabulary, real benchmarks, and runnable code. **25 is the release-engineering and mechanistic-debugging chapter** — how versions ship, which tools per role, and how to look inside the model when things go wrong.
 3. **Type the code yourself.** Reading code is not the same as writing it. Open a Jupyter notebook and recreate the snippets.
 4. **Run on real hardware when possible.** A free Colab T4 GPU is enough for most exercises. For training, even a small CPU run teaches you the loop.
 5. **Re-read the math once you've coded it.** The equations make more sense after you've seen the tensor shapes flow through them.
