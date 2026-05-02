@@ -1,8 +1,7 @@
 # AI Basics: From Neurons to Language Models
 
-[![English](https://img.shields.io/badge/Language-English-2b6cb0?style=for-the-badge&logo=googletranslate&logoColor=white)](./README.md) [![हिंदी](https://img.shields.io/badge/भाषा-हिंदी-d97706?style=for-the-badge&logo=googletranslate&logoColor=white)](./hindi/README.md)
-
-> 🌐 **Read this guide in your language:** **English** (current) · [हिंदी / Hindi](./hindi/README.md)
+> [!NOTE]
+> 🌐 **This guide is available in two languages.** You're reading **English**. Click **[हिंदी / Hindi](./hindi/README.md)** for the full Hindi version (all 24 chapters translated).
 
 A complete, beginner-to-pro guide to building modern language models from scratch. Written in plain English with PyTorch code you can actually run.
 
