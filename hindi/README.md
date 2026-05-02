@@ -1,6 +1,5 @@
 # AI Basics: न्यूरॉन से लेकर लैंग्वेज मॉडल तक
 
-> [!NOTE]
 > 🌐 **ये guide दो languages में available है।** आप **हिंदी** version पढ़ रहे हो। English version के लिए **[English README](../README.md)** click करो (सारे 24 chapters translated हैं)।
 
 मॉडर्न लैंग्वेज मॉडल को शुरुआत से बनाने की एक पूरी गाइड — beginner से लेकर pro तक। आसान हिंदी में, और PyTorch कोड के साथ जो आप सच में चला सकते हैं।
