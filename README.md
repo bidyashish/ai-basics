@@ -1,5 +1,9 @@
 # AI Basics: From Neurons to Language Models
 
+[![English](https://img.shields.io/badge/Language-English-2b6cb0?style=for-the-badge&logo=googletranslate&logoColor=white)](./README.md) [![हिंदी](https://img.shields.io/badge/भाषा-हिंदी-d97706?style=for-the-badge&logo=googletranslate&logoColor=white)](./hindi/README.md)
+
+> 🌐 **Read this guide in your language:** **English** (current) · [हिंदी / Hindi](./hindi/README.md)
+
 A complete, beginner-to-pro guide to building modern language models from scratch. Written in plain English with PyTorch code you can actually run.
 
 ## Who this is for
@@ -35,11 +39,16 @@ The chapters build on each other. If you only have time for a fast tour, read th
 | 16 | [Frontier Models in 2026](./16-frontier-models-2026.md) | Gemma 4 (E2B/E4B/26B-A4B/31B Dense) and Qwen 3.6 (27B Dense / 35B-A3B MoE). |
 | 17 | [Production Inference](./17-production-inference.md) | Serving 10,000 requests: vLLM/SGLang, FP8, prefix cache, HBM bandwidth, token caching, pricing per archetype. |
 | 18 | [AI Apps & Agents](./18-ai-apps-and-agents.md) | The harness above the model: 12 usage patterns, MCP, real-world apps (Cursor, Claude Code, Cline), provider pricing, 300-line agent. |
+| 19 | [Evaluation](./19-evaluation.md) | Capability benchmarks, LLM-as-judge, golden sets, agent evals (SWE-bench, OSWorld, GAIA), eval-driven development. |
+| 20 | [Fine-tuning Recipes](./20-fine-tuning-recipes.md) | Decision tree, LoRA/QLoRA/DoRA, SFT/DPO/GRPO recipes, end-to-end Qwen 3 fine-tune in 150 lines. |
+| 21 | [Embeddings & RAG](./21-embeddings-and-rag.md) | Embedding models, vector DBs, hybrid search, reranking, chunking, agentic RAG, complete RAG in 80 lines. |
+| 22 | [Multimodal Models](./22-multimodal.md) | VLM architectures, SigLIP-2, native multi-resolution, audio (Whisper, Realtime), QLoRA for VLMs, hallucination evals. |
+| 23 | [Safety & Alignment](./23-safety-and-alignment.md) | Four kinds of safety, prompt injection, content moderation, red-teaming with PyRIT, compliance (EU AI Act, GDPR). |
 
 ## How to use this guide
 
 1. **Start with [00-essential-math.md](./00-essential-math.md)** if any of "matrix multiplication / chain rule / softmax / cross-entropy" sound fuzzy. It takes 30 minutes and the rest of the book reads twice as fast afterward.
-2. **Read 01-18 in order** the first time. 00-03 are foundations. 04-13 build the model. 14-15 train it. 16-17 deploy frontier-class models to real users. 18 wraps it all in a real product.
+2. **Read 01-23 in order** the first time. 00-03 are foundations. 04-13 build the model. 14-15 train it. 16-17 deploy frontier-class models. 18 wraps it in a product. 19-23 are the operational maturity layer: evaluating, fine-tuning, RAG, multimodal, and keeping it all safe.
 3. **Type the code yourself.** Reading code is not the same as writing it. Open a Jupyter notebook and recreate the snippets.
 4. **Run on real hardware when possible.** A free Colab T4 GPU is enough for most exercises. For training, even a small CPU run teaches you the loop.
 5. **Re-read the math once you've coded it.** The equations make more sense after you've seen the tensor shapes flow through them.
