@@ -33,12 +33,13 @@ The chapters build on each other. If you only have time for a fast tour, read th
 | 14 | [Training Small Language Models](./14-training-small-language-models.md) | Full pretraining + SFT + DPO/GRPO pipeline with Muon and FSDP2. |
 | 15 | [Reading Training Logs](./15-reading-training-logs.md) | W&B charts, what each metric means, debugging loss curves. |
 | 16 | [Frontier Models in 2026](./16-frontier-models-2026.md) | Gemma 4 (E2B/E4B/26B-A4B/31B Dense) and Qwen 3.6 (27B Dense / 35B-A3B MoE). |
-| 17 | [Production Inference](./17-production-inference.md) | Serving 10,000 requests: vLLM/SGLang, FP8, prefix cache, speculative, autoscaling. |
+| 17 | [Production Inference](./17-production-inference.md) | Serving 10,000 requests: vLLM/SGLang, FP8, prefix cache, HBM bandwidth, token caching, pricing per archetype. |
+| 18 | [AI Apps & Agents](./18-ai-apps-and-agents.md) | The harness above the model: 12 usage patterns, MCP, real-world apps (Cursor, Claude Code, Cline), provider pricing, 300-line agent. |
 
 ## How to use this guide
 
 1. **Start with [00-essential-math.md](./00-essential-math.md)** if any of "matrix multiplication / chain rule / softmax / cross-entropy" sound fuzzy. It takes 30 minutes and the rest of the book reads twice as fast afterward.
-2. **Read 01-17 in order** the first time. 00-03 are foundations. 04-13 build the model. 14-15 train it. 16-17 deploy frontier-class models to real users.
+2. **Read 01-18 in order** the first time. 00-03 are foundations. 04-13 build the model. 14-15 train it. 16-17 deploy frontier-class models to real users. 18 wraps it all in a real product.
 3. **Type the code yourself.** Reading code is not the same as writing it. Open a Jupyter notebook and recreate the snippets.
 4. **Run on real hardware when possible.** A free Colab T4 GPU is enough for most exercises. For training, even a small CPU run teaches you the loop.
 5. **Re-read the math once you've coded it.** The equations make more sense after you've seen the tensor shapes flow through them.
