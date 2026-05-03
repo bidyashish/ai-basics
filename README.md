@@ -19,6 +19,7 @@ The chapters build on each other. If you only have time for a fast tour, read th
 | # | Topic | What you walk away with |
 |---|-------|--------------------------|
 | 00 | [Essential Math](./00-essential-math.md) | Matmul, gradients, chain rule, softmax, cross-entropy — the math you'll see every chapter. |
+| 00a | [Math for Beginners](./00a-math-for-beginners.md) | The same math as 00, but rebuilt from scratch for high schoolers — verbose, friendly, with a Google Colab walkthrough at the end. Read this first if `00` felt too dense. |
 | 01 | [Neural Networks](./01-neural-networks.md) | A neural net from scratch in NumPy + PyTorch. Backprop intuition. |
 | 02 | [PyTorch](./02-pytorch.md) | Tensors, autograd, modules, training loops, mixed precision. |
 | 03 | [GPU Computing](./03-gpu-computing.md) | Why GPUs are fast, memory hierarchy, kernel fusion, profiling. |

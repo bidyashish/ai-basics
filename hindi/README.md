@@ -21,6 +21,7 @@ Chapters एक के बाद एक build होते हैं। अग�
 | # | Topic | इससे क्या सीखोगे |
 |---|-------|------------------|
 | 00 | [Essential Math](./00-essential-math.md) | Matmul, gradients, chain rule, softmax, cross-entropy — हर chapter में दिखेगा। |
+| 00a | [Math for Beginners](./00a-math-for-beginners.md) | वही math जो 00 में है, पर शुरू से — high schoolers के लिए, simple language में, examples के साथ, और last में Google Colab का पूरा walkthrough। अगर `00` heavy लगा तो पहले ये पढ़ो। |
 | 01 | [Neural Networks](./01-neural-networks.md) | NumPy + PyTorch में neural net शुरू से। Backprop intuition. |
 | 02 | [PyTorch](./02-pytorch.md) | Tensors, autograd, modules, training loops, mixed precision। |
 | 03 | [GPU Computing](./03-gpu-computing.md) | GPU इतने तेज़ क्यों हैं, memory hierarchy, kernel fusion, profiling। |
