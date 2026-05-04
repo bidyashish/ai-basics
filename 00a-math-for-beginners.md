@@ -246,6 +246,42 @@ Stack many such layers and you have a deep neural network. Stack a *very* specif
 
 When we say "training a model", we mean: **adjust the numbers in `W` and `b` until the outputs match what we want.**
 
+### Transpose (flipping rows and columns)
+
+**Transpose** flips rows and columns of a matrix. Shape `(m, n)` becomes `(n, m)`.
+
+```
+Original (2×3):          Transposed (3×2):
+[1  2  3]                [1  4]
+[4  5  6]                [2  5]
+                         [3  6]
+```
+
+```python
+A = torch.tensor([[1., 2., 3.],
+                  [4., 5., 6.]])   # (2, 3)
+print(A.T)                         # (3, 2)
+```
+
+You'll see `.T` everywhere in AI code. In attention, the key operation is `Q @ K.T` — this multiplies queries with transposed keys to compute similarity scores.
+
+### `*` vs `@` — don't confuse them
+
+This is a beginner trap. They look similar but do completely different things:
+
+- `A * B` = **element-wise** (multiply each position by the matching position)
+- `A @ B` = **matrix multiplication** (dot products of rows and columns)
+
+```python
+A = torch.tensor([[1., 2.], [3., 4.]])
+B = torch.tensor([[5., 6.], [7., 8.]])
+
+print(A * B)   # element-wise: [[1*5, 2*6], [3*7, 4*8]] = [[5, 12], [21, 32]]
+print(A @ B)   # matmul: [[1*5+2*7, 1*6+2*8], [3*5+4*7, 3*6+4*8]] = [[19, 22], [43, 50]]
+```
+
+In transformer code: `*` is usually scaling or masking. `@` is the real linear algebra.
+
 ---
 
 ## Section 3: Broadcasting (when shapes don't quite match)

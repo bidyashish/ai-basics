@@ -28,11 +28,11 @@ T = torch.randn(2, 3, 4)                   # shape (2, 3, 4)
 torch.dot(v, v)                   # 1*1 + 2*2 + 3*3 = 14
 
 # norm (length)
-v.norm()                          # sqrt(14) ≈ 3.74
+torch.linalg.norm(v)              # sqrt(14) ≈ 3.74
 
 # cosine similarity (angle between vectors)
 def cos_sim(a, b):
-    return torch.dot(a, b) / (a.norm() * b.norm())
+    return torch.dot(a, b) / (torch.linalg.norm(a) * torch.linalg.norm(b))
 ```
 
 Cosine similarity is everywhere in embeddings: 1 means same direction, 0 means perpendicular, -1 means opposite. It's how RAG systems judge "similar text."
@@ -86,6 +86,48 @@ In transformers, you'll see batched matmul like the second one constantly.
 
 PyTorch broadcasts matmul over leading dims. `(B, T, D) @ (D, M) → (B, T, M)` runs `B` matmuls of shape `(T, D) @ (D, M)`. With Tensor Cores, this is super fast as long as `T`, `D`, `M` are big enough (~64+).
 
+### Transpose
+
+**Transpose** flips rows and columns: shape `(m, n)` becomes `(n, m)`.
+
+```python
+A = torch.tensor([[1., 2., 3.],
+                  [4., 5., 6.]])   # (2, 3)
+print(A.T)                         # (3, 2)
+# tensor([[1., 4.],
+#         [2., 5.],
+#         [3., 6.]])
+```
+
+You'll see `.T`, `.transpose(1, 2)`, and `.permute(...)` everywhere in transformer code. The key attention line `scores = Q @ K.T` is a matmul with a transposed matrix — it computes dot products between every query and every key.
+
+### `*` vs `@` — a common trap
+
+`A * B` is **element-wise** multiplication (same position × same position, shapes must match or broadcast). `A @ B` is **matrix multiplication** (inner dims must match, produces dot products).
+
+```python
+A = torch.tensor([[1., 2.], [3., 4.]])
+B = torch.tensor([[5., 6.], [7., 8.]])
+print(A * B)   # element-wise: [[5, 12], [21, 32]]
+print(A @ B)   # matmul:       [[19, 22], [43, 50]]
+```
+
+When you see `*` in transformer code, it's usually scaling (like `attn_weights * mask`). When you see `@`, it's the core linear algebra.
+
+### `einsum` — compact notation for matmul and beyond
+
+Many transformer implementations use `torch.einsum` to express multi-dimensional matmuls in one line:
+
+```python
+C = A @ B                                      # standard
+C = torch.einsum('ik,kj->ij', A, B)            # same thing, explicit indices
+
+# einsum shines for batched/multi-dim ops
+attn = torch.einsum('bhqd,bhkd->bhqk', Q, K)   # attention scores
+```
+
+The string `'bhqd,bhkd->bhqk'` reads: "for each batch `b` and head `h`, dot-product the `d` dimension of query position `q` with key position `k`." If you can read the subscript string, you can read any attention implementation.
+
 ---
 
 ## 3. Broadcasting
@@ -105,12 +147,12 @@ a + b                    # both stretched, shape (3, 4)
 This makes positional encodings, masking, and per-head ops elegant. It also bites you when you didn't *want* broadcasting:
 
 ```python
-logits = torch.randn(B, T, V)
-target = torch.randn(B, T)         # forgot last dim
-diff = logits - target              # quietly broadcasts to (B, T, V) — bug
+loss = torch.randn(4)       # shape (4,)   — one loss per sample
+weight = torch.randn(4, 1)  # shape (4, 1) — extra dim by mistake
+result = loss * weight       # shape (4, 4) — not (4,)! Silent outer product.
 ```
 
-Always print shapes when in doubt.
+PyTorch treated `(4,)` as `(1, 4)` and broadcast with `(4, 1)` → `(4, 4)`. No error, just wrong. Always print shapes when in doubt.
 
 ---
 
@@ -164,7 +206,7 @@ Cross-entropy in PyTorch eats raw logits and applies log-softmax internally:
 loss = torch.nn.functional.cross_entropy(logits, target)
 ```
 
-This is the **only loss** used to train language models.
+This is the **core pretraining loss** for language models. Fine-tuning stages (RLHF, DPO) layer additional objectives on top, but cross-entropy is the foundation.
 
 ### Sigmoid and logit
 
@@ -278,6 +320,7 @@ Given a probability distribution over the next token, you can:
 - **Sample**: roll a weighted die.
 - **Top-k**: sample from the top `k` only.
 - **Top-p / nucleus**: sample from the smallest set whose probability sums to `p`.
+- **Min-p**: keep only tokens with probability ≥ `p × top_token_prob`. Adapts to model confidence — standard since 2025.
 - **Temperature**: divide logits by `T` before softmax. Low `T` → sharp, deterministic. High `T` → flat, creative.
 
 ```python
@@ -302,7 +345,7 @@ In LLM code, you'll keep seeing dims with these conventional letters:
 | Letter | Meaning | Typical size |
 |--------|---------|--------------|
 | `B` | batch | 1-1024 |
-| `T` | time / sequence length | 1-128k |
+| `T` | time / sequence length | 1-1M+ |
 | `D` (or `d_model`) | model dimension | 768-16k |
 | `H` (or `n_heads`) | attention heads | 8-128 |
 | `d` (or `head_dim`) | per-head dim | 64-128 |

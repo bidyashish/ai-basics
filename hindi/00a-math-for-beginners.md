@@ -246,6 +246,42 @@ output = input @ W + b
 
 जब हम कहते हैं "model train कर रहे हैं", उसका मतलब है: **`W` और `b` के numbers adjust करो जब तक outputs जो हम चाहते हैं वो आ जाएँ।**
 
+### Transpose (rows और columns को flip करना)
+
+**Transpose** matrix की rows और columns को flip करता है। Shape `(m, n)` बन जाती है `(n, m)`।
+
+```
+Original (2×3):          Transposed (3×2):
+[1  2  3]                [1  4]
+[4  5  6]                [2  5]
+                         [3  6]
+```
+
+```python
+A = torch.tensor([[1., 2., 3.],
+                  [4., 5., 6.]])   # (2, 3)
+print(A.T)                         # (3, 2)
+```
+
+AI code में `.T` हर जगह दिखेगा। Attention में key operation `Q @ K.T` है — ये queries को transposed keys के साथ multiply करके similarity scores निकालता है।
+
+### `*` vs `@` — इन दोनों को confuse मत करो
+
+ये beginners की common trap है। दिखते similar हैं लेकिन बिल्कुल अलग काम करते हैं:
+
+- `A * B` = **element-wise** (हर position को matching position से multiply करो)
+- `A @ B` = **matrix multiplication** (rows और columns के dot products)
+
+```python
+A = torch.tensor([[1., 2.], [3., 4.]])
+B = torch.tensor([[5., 6.], [7., 8.]])
+
+print(A * B)   # element-wise: [[1*5, 2*6], [3*7, 4*8]] = [[5, 12], [21, 32]]
+print(A @ B)   # matmul: [[1*5+2*7, 1*6+2*8], [3*5+4*7, 3*6+4*8]] = [[19, 22], [43, 50]]
+```
+
+Transformer code में: `*` usually scaling या masking है। `@` real linear algebra है।
+
 ---
 
 ## Section 3: Broadcasting (जब shapes exactly match नहीं करतीं)
