@@ -64,7 +64,7 @@ A constitution is just a set of natural-language rules:
 4. ... (5-30 principles)
 ```
 
-The model evaluates its own draft against each principle, produces a revision, and we train on (draft, revision) pairs. Open-source variants: **OLMo-2 with C2 (Constitutional Classifier)**, **Anthropic's published Claude constitution**, **Tülu 3** uses a similar self-critique loop.
+The model evaluates its own draft against each principle, produces a revision, and we train on (draft, revision) pairs. Open-source variants: **Tülu 3** and **OLMo 3** use a similar self-critique loop in post-training; **Anthropic's published Claude constitution** is the reference set of principles.
 
 ---
 
@@ -357,7 +357,7 @@ The most common production safety incident in 2026 is not a jailbreak — it's a
 |-------|-------|
 | **Alignment data** | Tülu 3, UltraFeedback, HelpSteer3, PKU-SafeRLHF, Anthropic HH |
 | **Content classifier (open)** | Llama Guard 4, Aegis 2.0, ShieldGemma, Granite Guardian, GPT-OSS Guard |
-| **Content classifier (API)** | OpenAI Moderation, Mistral Moderation, Google PaLM Safety, Anthropic Constitutional Classifiers |
+| **Content classifier (API)** | OpenAI Moderation, Mistral Moderation, Google ShieldGemma 2, Anthropic Constitutional Classifiers |
 | **Prompt-injection defense** | Lakera, Prompt Security, NVIDIA NeMo Guardrails, Robust Intelligence |
 | **Hallucination detection** | TruthfulQA, FActScore, AttributedQA evals |
 | **Red-team** | PyRIT, Inspect-AI, Garak, HarmBench, StrongREJECT |
@@ -398,4 +398,6 @@ For a typical 2026 production stack: **Llama Guard for content + Lakera for prom
 - **Liang et al. HELM** — comprehensive multi-dimensional evaluation, including safety.
 - **`inspect-ai`** — UK AISI's framework, broad safety evaluation tooling.
 
-That's the safety chapter. From here the curriculum is — for now — complete: you can build, train, deploy, wrap, and *defend* an LLM product end to end.
+That's the safety chapter: you can now build, train, deploy, wrap, and *defend* an LLM product end to end.
+
+Next: **[24-gemma-4-deep-dive.md](./24-gemma-4-deep-dive.md)** — one frontier open model, end to end.

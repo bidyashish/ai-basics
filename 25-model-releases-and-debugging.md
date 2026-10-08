@@ -583,3 +583,5 @@ Each arrow has its own tooling, calendar, and risk profile. **Pretraining decisi
 - **MATS / SERI MATS programs and Apollo Research blogs** — community-driven interpretability research.
 
 That's the full release-engineering and debug-the-internals chapter. Together with chapter 14 (training) and chapter 19 (eval), this completes the production-LLM lifecycle: from random init to deployed model to debugging the failures users find.
+
+Next: **[26-mechanistic-debugging.md](./26-mechanistic-debugging.md)** — reading and editing what the model computes inside.

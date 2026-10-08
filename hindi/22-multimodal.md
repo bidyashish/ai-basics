@@ -1,6 +1,6 @@
 # 22 · Multimodal Models — Vision, Audio, और Beyond
 
-> **TL;DR** एक multimodal LLM (MLLM / VLM) एक text LLM है जिसमें images, audio, या video के लिए **encoder modules** हैं जो **soft tokens** (continuous embeddings) produce करते हैं और same residual stream में inject होते हैं। Architecturally: **vision encoder (ViT या SigLIP) → projector → LLM**। 2026 frontier (Gemma 4, Qwen 3.6-VL, Llama 4, GPT-5, Claude Opus 5.5, Gemini 2.5) सब native multi-resolution और (कुछ के लिए) audio के साथ ये pattern share करते हैं। ये chapter दिखाता है architecture कैसे काम करता है, practice में VLMs कैसे use करें, QLoRA के साथ एक VLM कैसे fine-tune करें, और eval benchmarks actually क्या मतलब करते हैं। Code English में रहता है; math small है।
+> **TL;DR** एक multimodal LLM (MLLM / VLM) एक text LLM है जिसमें images, audio, या video के लिए **encoder modules** हैं जो **soft tokens** (continuous embeddings) produce करते हैं और same residual stream में inject होते हैं। Architecturally: **vision encoder (ViT या SigLIP) → projector → LLM**। 2026 frontier (Gemma 4, Qwen 3.6-VL, Llama 4, GPT-6, Claude Opus 5.5, Gemini 3) सब native multi-resolution और (कुछ के लिए) audio के साथ ये pattern share करते हैं। ये chapter दिखाता है architecture कैसे काम करता है, practice में VLMs कैसे use करें, QLoRA के साथ एक VLM कैसे fine-tune करें, और eval benchmarks actually क्या मतलब करते हैं। Code English में रहता है; math small है।
 
 ---
 
@@ -90,7 +90,7 @@ Headline models, उनके architectural choices, और rough capability:
 | **Gemma 4 E4B** | SigLIP-2 SoViT | MLP | Gemma 4 (4.5B effective) | 70-1120 | mobile / on-device multimodal |
 | **Qwen 3.6-27B** | Qwen-VL-style 2D RoPE, dynamic tiles | MLP | Qwen 3.6 hybrid | up to ~16k | OCR + agentic के लिए best open VLM |
 | **Llama 4** | NVIDIA NV-CLIP variant | MLP | Llama 4 dense | dynamic | open frontier multimodal |
-| **GPT-5** | proprietary, multi-tile | proprietary | GPT-5 | dynamic | best general VLM |
+| **GPT-6** | proprietary, multi-tile | proprietary | GPT-6 | dynamic | best general VLM |
 | **Claude Opus 5.5** | proprietary | proprietary | Claude | ~1.5k @ 1024² | strongest agentic vision |
 | **Gemini 2.5 Pro** | proprietary, very efficient | proprietary | Gemini | ~258 / tile | best long-video, 1M+ context |
 | **Pixtral 12B** | Mistral's, native AR | MLP | Mistral Nemo | dynamic | strong open mid-size |
@@ -102,7 +102,7 @@ Audio capability (separate या integrated):
 | Model | Audio encoder | Audio in | Audio out |
 |-------|---------------|----------|-----------|
 | **Gemma 4 E2B/E4B** | USM-style conformer | yes | no |
-| **GPT-5 / Realtime** | proprietary | yes | yes (speech-to-speech) |
+| **GPT-6 / gpt-realtime** | proprietary | yes | yes (speech-to-speech) |
 | **Gemini 2.5** | USM | yes | yes |
 | **Whisper-v3** | conformer encoder | (standalone ASR) | no |
 | **Qwen3-Omni** | AuT (in-house) | yes | yes |
@@ -289,7 +289,7 @@ Video = कई frames। तीन patterns:
 
 1. **Frame sampling**: uniformly N frames sample करो (या content से), हर एक को image के रूप में embed करो, सारे LLM को feed करो। Simple, कुछ minutes तक काम करता है।
 2. **Temporal pooling**: special encoder जो frames का stack process करता है (Video-Llama, VideoMAE)। Motion के लिए better।
-3. **Long-video architectures**: **Gemini 2.5** ~2 hours के video तक process कर सकता है low res पर sample करके + occasional high-res keyframes। Most others (Llama 4, Gemma 4, Qwen 3.6) कुछ minutes handle करते हैं।
+3. **Long-video architectures**: **Gemini 3** ~2 hours के video तक process कर सकता है low res पर sample करके + occasional high-res keyframes। Most others (Llama 4, Gemma 4, Qwen 3.6) कुछ minutes handle करते हैं।
 
 Cost: video tokens में brutally expensive है। 1 fps × 1024² पर एक 5-minute video ≈ 500-2000 minutes worth image tokens। **हमेशा frames downsample करो और per-frame token budget reduce करो।**
 
@@ -302,8 +302,8 @@ Voice + video together (multimodal calls) के लिए: 2026 में स�
 दो flavors:
 
 - **ASR (speech to text)** — usually एक separate model (Whisper-v3, NVIDIA Canary, Deepgram, AssemblyAI)। Pipeline: audio → text → text LLM।
-- **Native audio in** — model audio directly accept करता है: Gemma 4 E-tier, Qwen3-Omni, GPT-5 Realtime, Gemini Live, Moshi। Emotional cues, prosody, multi-speaker के लिए better।
-- **Native audio out** — model audio generate करता है: GPT-5 Realtime, Moshi, Qwen-Omni, Gemini Live। 800 ms के नीचे speech-to-speech latency।
+- **Native audio in** — model audio directly accept करता है: Gemma 4 E-tier, Qwen3-Omni, gpt-realtime, Gemini Live, Moshi। Emotional cues, prosody, multi-speaker के लिए better।
+- **Native audio out** — model audio generate करता है: gpt-realtime, Moshi, Qwen-Omni, Gemini Live। 800 ms के नीचे speech-to-speech latency।
 
 Most products के लिए 2026 में: **Whisper-v3-turbo** (open) या **Deepgram / AssemblyAI** (API) ASR के लिए + एक text LLM अभी भी cheapest, most flexible path है। Real-time bidirectional speech (voice agents) के लिए native multimodal पर switch करो।
 
@@ -347,7 +347,7 @@ Capability-aside, hallucination explicitly evaluate करो: VLMs objects inve
 - **हमेशा image-token usage log करो**; एक image एक text turn का 5-15× है।
 - **भेजने से पहले resize / crop करो**; 768² ज़्यादातर tasks के लिए enough है।
 - OCR / docs के लिए: **Qwen-VL, InternVL3, Pixtral, Gemma 4 31B**।
-- Agentic vision (UI, screenshots) के लिए: **Claude Opus 5.5, GPT-5, Qwen 3.6**।
+- Agentic vision (UI, screenshots) के लिए: **Claude Opus 5.5, GPT-6 Sol, Qwen 3.6**।
 - Video / long context के लिए: **Gemini 2.5 Pro**।
 - On-device multimodal के लिए: **Gemma 4 E2B/E4B**।
 - ASR के लिए: **Whisper-v3-turbo** (open) या **Deepgram** (API)।

@@ -655,7 +655,7 @@ Always end debugging with a measurement. The most useful measurements:
 
 | Question | How to measure |
 |----------|----------------|
-| Did the target behavior change? | A/B on 100+ contrastive prompts, judge by GPT-5 / Claude / human |
+| Did the target behavior change? | A/B on 100+ contrastive prompts, judge by GPT-6 / Claude / human |
 | Did anything else break? | Run MMLU subset (200 Qs), HumanEval-100, GSM8K-100 before/after |
 | Is it consistent? | Run 5 times with different seeds; report mean and std |
 | Does it generalize? | Hold out 20% of your contrastive examples; only steer using train set |
@@ -722,4 +722,6 @@ That's a debug-then-fix loop you can present to a release reviewer. Numbers, not
 - **Neel Nanda's blog and YouTube** — practical mech-interp tutorials.
 - **Apollo Research and MATS programs** — community-driven mech-interp research output.
 
-End of curriculum (for now). With chapters 23-26, you can not only build, train, deploy, and serve LLMs — you can **read their minds** and **change them** in measurable ways without retraining. The release ladder (25), the in-the-weeds debugger (26), and the safety stack (23) are what separate "I built an LLM" from "I can ship and operate one."
+With chapters 23-26, you can not only build, train, deploy, and serve LLMs — you can **read their minds** and **change them** in measurable ways without retraining. The release ladder (25), the in-the-weeds debugger (26), and the safety stack (23) are what separate "I built an LLM" from "I can ship and operate one."
+
+Next: **[27-useful-not-benchmaxxed.md](./27-useful-not-benchmaxxed.md)** — building models people actually use, not just models that score.

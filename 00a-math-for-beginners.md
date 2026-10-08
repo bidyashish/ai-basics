@@ -121,7 +121,7 @@ Carol    [    88      90       75      80  ]
 
 This is a **3 × 4** matrix. We say its "shape" is `(3, 4)`. 3 rows, 4 columns.
 
-In AI, all the *learned knowledge* of a model lives in matrices called **weights**. When people say "Llama 3 has 405 billion parameters", they mean the weights of all its matrices contain 405 billion numbers total.
+In AI, all the *learned knowledge* of a model lives in matrices called **weights**. When people say "DeepSeek-V3 has 671 billion parameters", they mean the weights of all its matrices contain 671 billion numbers total.
 
 ### A tensor: just stacks (don't be scared by the word)
 

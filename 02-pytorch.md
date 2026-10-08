@@ -204,7 +204,7 @@ Key methods:
 ### Common layers
 
 ```python
-nn.Linear(in, out, bias=True)
+nn.Linear(d_in, d_out, bias=True)
 nn.Embedding(num_embeddings, embedding_dim)
 nn.LayerNorm(d)
 nn.RMSNorm(d)
@@ -212,7 +212,7 @@ nn.Dropout(p=0.1)
 nn.GELU(); nn.SiLU(); nn.ReLU()
 nn.MultiheadAttention(d, h, batch_first=True)
 nn.Conv2d(in_c, out_c, kernel_size)
-nn.LSTM(in, hidden, batch_first=True)
+nn.LSTM(d_in, hidden, batch_first=True)
 ```
 
 ---
@@ -370,9 +370,9 @@ Caveats:
 
 For real LLM training you want multiple GPUs. PyTorch offers:
 
-- **DDP** (`DistributedDataParallel`) — replicate the model on every GPU, sum gradients across them. Easy. Limited by single-GPU memory.
-- **FSDP** (`FullyShardedDataParallel`) — shard parameters/gradients/optimizer state across GPUs. Lets you train models that don't fit on one GPU.
-- **Tensor / pipeline parallelism** — for the truly huge models. Frameworks like Megatron-LM, DeepSpeed, and `torch.distributed.tensor` provide this.
+- **FSDP2** (`fully_shard`) — shard parameters, gradients, and optimizer state across GPUs. The default for anything serious, and it costs nothing extra when the model fits on one GPU.
+- **DDP** (`DistributedDataParallel`) — replicate the model on every GPU, sum gradients across them. Only for toy runs that fit on one GPU.
+- **Tensor / pipeline / context parallelism** — for the truly huge models and long contexts. torchtitan and Megatron-LM build these on `torch.distributed.tensor`.
 
 We cover this properly in **[14-training-small-language-models.md](./14-training-small-language-models.md)**.
 

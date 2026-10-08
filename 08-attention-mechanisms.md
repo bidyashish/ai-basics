@@ -1,6 +1,6 @@
 # 08 · Attention Mechanisms — The Heart of the Transformer
 
-> **TL;DR** Attention is a soft, differentiable lookup. Each **query** vector decides how much to read from each **key/value** pair using a softmax. In a self-attention layer every token is both a query and a key/value, so tokens "talk" to each other. Multi-head attention does this in parallel with several smaller heads. Causal masking forces tokens to only see the past. **In 2026, you call `F.scaled_dot_product_attention` (which uses Flash Attention 2/3 under the hood) and never write the inner loop yourself.**
+> **TL;DR** Attention is a soft, differentiable lookup. Each **query** vector decides how much to read from each **key/value** pair using a softmax. In a self-attention layer every token is both a query and a key/value, so tokens "talk" to each other. Multi-head attention does this in parallel with several smaller heads. Causal masking forces tokens to only see the past. **In 2026, you call `F.scaled_dot_product_attention` (which dispatches to FlashAttention or cuDNN fused kernels under the hood) and never write the inner loop yourself.**
 
 ## 1. The intuition
 
@@ -112,7 +112,7 @@ But — `O(T²)` memory and `O(T²)` compute. For `T=8192`, the score matrix is 
 
 ## 6. Flash Attention (the 2026 default)
 
-Flash Attention (Dao et al. 2022) and its successors (FA2 2023, FA3 2024) are **mathematically the same operation** but use a tiled, IO-aware kernel that:
+Flash Attention (Dao et al. 2022) and its successors (FA2 2023, FA3 2024, FA4 2025 for Blackwell) are **mathematically the same operation** but use a tiled, IO-aware kernel that:
 
 - Never materializes the full `(T, T)` matrix in HBM.
 - Uses online softmax (a streaming-friendly normalization).

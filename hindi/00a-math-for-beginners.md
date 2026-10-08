@@ -121,7 +121,7 @@ Carol    [    88      90       75      80  ]
 
 ये एक **3 × 4** matrix है। हम इसकी "shape" `(3, 4)` बोलते हैं। 3 rows, 4 columns।
 
-AI में, model का सारा *learned knowledge* matrices में रहता है, जिन्हें **weights** बोलते हैं। जब लोग कहते हैं "Llama 3 के 405 billion parameters हैं", तो उनका मतलब है कि सारी matrices में मिलाकर 405 billion numbers हैं।
+AI में, model का सारा *learned knowledge* matrices में रहता है, जिन्हें **weights** बोलते हैं। जब लोग कहते हैं "DeepSeek-V3 के 671 billion parameters हैं", तो उनका मतलब है कि सारी matrices में मिलाकर 671 billion numbers हैं।
 
 ### Tensor: बस stacks (इस word से डरो मत)
 

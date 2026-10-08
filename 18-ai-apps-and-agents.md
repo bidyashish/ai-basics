@@ -245,7 +245,7 @@ You are an agent. For each step:
 - When you have enough information, give the final answer.
 ```
 
-Modern reasoning models (Claude Opus 5.5 with thinking, GPT-5 with reasoning, DeepSeek-R1) effectively bake ReAct into the model — you just give them tools and they reason internally before acting.
+Modern reasoning models (Claude Opus 5.5 with thinking, GPT-6 Sol with reasoning, DeepSeek-R1) effectively bake ReAct into the model — you just give them tools and they reason internally before acting.
 
 ### Pattern 5 — Plan-then-execute
 
@@ -792,3 +792,5 @@ This grid solves 90% of "which AI do I use?" debates.
 - **Sweep the pricing pages quarterly** — providers cut prices regularly; old assumptions go stale fast.
 
 If you've made it through chapters 00 → 18: you understand a model end-to-end (chapters 00-13), how to train it (14-15), what a 2026 frontier model looks like (16), how to serve it at scale (17), and now how to wrap it in a real product. **The rest is taste and shipping. Go build.**
+
+Next: **[19-evaluation.md](./19-evaluation.md)** — knowing whether any of it actually works.

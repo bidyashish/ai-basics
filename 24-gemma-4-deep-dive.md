@@ -663,4 +663,4 @@ On an H100 fp8 you'll see ~80-120 tok/s, with the first ~1000-2000 tokens in the
 
 This deep-dive complements **[16-frontier-models-2026.md](./16-frontier-models-2026.md)** (which compares Gemma 4 against Qwen 3.6 and other frontier families). For serving Gemma 4 in production, see **[17-production-inference.md](./17-production-inference.md)**. For evaluation, **[19-evaluation.md](./19-evaluation.md)**. For fine-tuning, **[20-fine-tuning-recipes.md](./20-fine-tuning-recipes.md)** — every recipe there works on Gemma 4.
 
-End of curriculum.
+Next: **[25-model-releases-and-debugging.md](./25-model-releases-and-debugging.md)** — shipping a release and debugging what users find.

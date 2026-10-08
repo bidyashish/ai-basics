@@ -663,4 +663,4 @@ H100 fp8 पर आप ~80-120 tok/s देखोगे, first ~1000-2000 tokens
 
 ये deep-dive **[16-frontier-models-2026.md](./16-frontier-models-2026.md)** को complement करता है (जो Gemma 4 को Qwen 3.6 और दूसरे frontier families के against compare करता है)। Production में Gemma 4 serve करने के लिए, **[17-production-inference.md](./17-production-inference.md)** देखो। Evaluation के लिए, **[19-evaluation.md](./19-evaluation.md)**। Fine-tuning के लिए, **[20-fine-tuning-recipes.md](./20-fine-tuning-recipes.md)** — वहां की हर recipe Gemma 4 पर काम करती है।
 
-Curriculum का end।
+Next: **[25-model-releases-and-debugging.md](./25-model-releases-and-debugging.md)** — एक release ship करना और users जो find करें उसे debug करना।

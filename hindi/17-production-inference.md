@@ -872,4 +872,6 @@ DNS flip करने से पहले, run करो:
 - **k6 + genai-perf** — load testing toolkits actually streaming token APIs के लिए designed।
 - **OpenAI / Anthropic public API SLOs और incident postmortems** — production LLM serving scale पर कैसा दिखता है उसके most honest accounts।
 
-That's curriculum का end. अगर आपने chapters 00 → 17 पढ़े, आप अब एक small LM pretrain, scratch से build, fine-tune, quantize, और दस हज़ार users को serve कर सकते हो खुद को bankrupt किए बिना। **अब कुछ ship करो।**
+अगर आपने chapters 00 → 17 पढ़े, आप अब एक small LM pretrain, scratch से build, fine-tune, quantize, और दस हज़ार users को serve कर सकते हो खुद को bankrupt किए बिना। **अब कुछ ship करो।**
+
+Next: **[18-ai-apps-and-agents.md](./18-ai-apps-and-agents.md)** — एक served model को real product में wrap करना: tools, agents, cost।

@@ -1,6 +1,6 @@
 # 22 · Multimodal Models — Vision, Audio, and Beyond
 
-> **TL;DR** A multimodal LLM (MLLM / VLM) is a text LLM with **encoder modules** for images, audio, or video that produce **soft tokens** (continuous embeddings) injected into the same residual stream. Architecturally: **vision encoder (ViT or SigLIP) → projector → LLM**. The 2026 frontier (Gemma 4, Qwen 3.6-VL, Llama 4, GPT-5, Claude Opus 5.5, Gemini 2.5) all share this pattern with native multi-resolution and (for some) audio. This chapter shows how the architecture works, how to use VLMs in practice, how to fine-tune one with QLoRA, and what eval benchmarks actually mean. Code stays English; the math is small.
+> **TL;DR** A multimodal LLM (MLLM / VLM) is a text LLM with **encoder modules** for images, audio, or video that produce **soft tokens** (continuous embeddings) injected into the same residual stream. Architecturally: **vision encoder (ViT or SigLIP) → projector → LLM**. The 2026 frontier (Gemma 4, Qwen 3.6-VL, Llama 4, GPT-6, Claude Opus 5.5, Gemini 3) all share this pattern with native multi-resolution and (for some) audio. This chapter shows how the architecture works, how to use VLMs in practice, how to fine-tune one with QLoRA, and what eval benchmarks actually mean. Code stays English; the math is small.
 
 ---
 
@@ -90,7 +90,7 @@ Headline models, their architectural choices, and rough capability:
 | **Gemma 4 E4B** | SigLIP-2 SoViT | MLP | Gemma 4 (4.5B effective) | 70-1120 | mobile / on-device multimodal |
 | **Qwen 3.6-27B** | Qwen-VL-style 2D RoPE, dynamic tiles | MLP | Qwen 3.6 hybrid | up to ~16k | best open VLM for OCR + agentic |
 | **Llama 4** | NVIDIA NV-CLIP variant | MLP | Llama 4 dense | dynamic | open frontier multimodal |
-| **GPT-5** | proprietary, multi-tile | proprietary | GPT-5 | dynamic | best general VLM |
+| **GPT-6** | proprietary, multi-tile | proprietary | GPT-6 | dynamic | best general VLM |
 | **Claude Opus 5.5** | proprietary | proprietary | Claude | ~1.5k @ 1024² | strongest agentic vision |
 | **Gemini 2.5 Pro** | proprietary, very efficient | proprietary | Gemini | ~258 / tile | best long-video, 1M+ context |
 | **Pixtral 12B** | Mistral's, native AR | MLP | Mistral Nemo | dynamic | strong open mid-size |
@@ -102,7 +102,7 @@ Audio capability (separate or integrated):
 | Model | Audio encoder | Audio in | Audio out |
 |-------|---------------|----------|-----------|
 | **Gemma 4 E2B/E4B** | USM-style conformer | yes | no |
-| **GPT-5 / Realtime** | proprietary | yes | yes (speech-to-speech) |
+| **GPT-6 / gpt-realtime** | proprietary | yes | yes (speech-to-speech) |
 | **Gemini 2.5** | USM | yes | yes |
 | **Whisper-v3** | conformer encoder | (standalone ASR) | no |
 | **Qwen3-Omni** | AuT (in-house) | yes | yes |
@@ -289,7 +289,7 @@ Video = many frames. Three patterns:
 
 1. **Frame sampling**: sample N frames uniformly (or by content), embed each as an image, feed all to LLM. Simple, works up to a few minutes.
 2. **Temporal pooling**: special encoder that processes a stack of frames (Video-Llama, VideoMAE). Better for motion.
-3. **Long-video architectures**: **Gemini 2.5** can process up to ~2 hours of video by sampling at low res + occasional high-res keyframes. Most others (Llama 4, Gemma 4, Qwen 3.6) handle a few minutes.
+3. **Long-video architectures**: **Gemini 3** can process up to ~2 hours of video by sampling at low res + occasional high-res keyframes. Most others (Llama 4, Gemma 4, Qwen 3.6) handle a few minutes.
 
 Cost: video is brutally expensive in tokens. A 5-minute video at 1 fps × 1024² ≈ 500-2000 minutes worth of image tokens. **Always downsample frames and reduce per-frame token budget.**
 
@@ -302,8 +302,8 @@ For voice + video together (multimodal calls): **Gemini Live API** and **OpenAI 
 Two flavors:
 
 - **ASR (speech to text)** — usually a separate model (Whisper-v3, NVIDIA Canary, Deepgram, AssemblyAI). Pipeline: audio → text → text LLM.
-- **Native audio in** — model accepts audio directly: Gemma 4 E-tier, Qwen3-Omni, GPT-5 Realtime, Gemini Live, Moshi. Better for emotional cues, prosody, multi-speaker.
-- **Native audio out** — model generates audio: GPT-5 Realtime, Moshi, Qwen-Omni, Gemini Live. Speech-to-speech latency under 800 ms.
+- **Native audio in** — model accepts audio directly: Gemma 4 E-tier, Qwen3-Omni, gpt-realtime, Gemini Live, Moshi. Better for emotional cues, prosody, multi-speaker.
+- **Native audio out** — model generates audio: gpt-realtime, Moshi, Qwen-Omni, Gemini Live. Speech-to-speech latency under 800 ms.
 
 For most products in 2026: **Whisper-v3-turbo** (open) or **Deepgram / AssemblyAI** (API) for ASR + a text LLM is still the cheapest, most flexible path. Switch to native multimodal when you need real-time bidirectional speech (voice agents).
 
@@ -347,7 +347,7 @@ Capability-aside, evaluate hallucination explicitly: VLMs love to invent objects
 - **Always log image-token usage**; an image is 5-15× a text turn.
 - **Resize / crop before sending**; 768² is enough for most tasks.
 - For OCR / docs: **Qwen-VL, InternVL3, Pixtral, Gemma 4 31B**.
-- For agentic vision (UI, screenshots): **Claude Opus 5.5, GPT-5, Qwen 3.6**.
+- For agentic vision (UI, screenshots): **Claude Opus 5.5, GPT-6 Sol, Qwen 3.6**.
 - For video / long context: **Gemini 2.5 Pro**.
 - For on-device multimodal: **Gemma 4 E2B/E4B**.
 - For ASR: **Whisper-v3-turbo** (open) or **Deepgram** (API).

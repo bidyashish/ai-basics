@@ -109,7 +109,7 @@ Public LLM-as-judge benchmarks. **Arena-Hard-Auto** (correlates well with LMSYS 
 
 ### Judge biases — what to watch for
 
-- **Length bias**: judges prefer longer answers. Normalize, or use a judge that's been trained against this (the GPT-4 / Claude judges of 2024-2026 are mostly fixed but not perfectly).
+- **Length bias**: judges prefer longer answers. Normalize, or use a judge that's been trained against this (current GPT-6 / Claude judges are mostly fixed but not perfectly).
 - **Position bias**: order matters. Always randomize.
 - **Self-preference**: a model judging another from the same family rates it higher. Use a *different family* judge when possible.
 - **Style bias**: judges prefer formal, well-structured prose; if your product wants concise replies, build that into the rubric.

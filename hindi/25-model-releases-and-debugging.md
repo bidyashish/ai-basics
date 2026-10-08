@@ -583,3 +583,5 @@ Suppose आपका model occasionally normal chat के बीच में `
 - **MATS / SERI MATS programs और Apollo Research blogs** — community-driven interpretability research।
 
 ये है full release-engineering और debug-the-internals chapter। Together with chapter 14 (training) और chapter 19 (eval), ये production-LLM lifecycle complete करता है: random init से deployed model तक users जो failures find करते हैं उन्हें debug करने तक।
+
+Next: **[26-mechanistic-debugging.md](./26-mechanistic-debugging.md)** — model अंदर क्या compute करता है उसे पढ़ना और edit करना।

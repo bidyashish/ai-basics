@@ -64,7 +64,7 @@ A constitution natural-language rules का set है:
 4. ... (5-30 principles)
 ```
 
-Model अपने draft को हर principle के against evaluate करता है, एक revision produce करता है, और हम (draft, revision) pairs पर train करते हैं। Open-source variants: **C2 (Constitutional Classifier) के साथ OLMo-2**, **Anthropic's published Claude constitution**, **Tülu 3** एक similar self-critique loop use करता है।
+Model अपने draft को हर principle के against evaluate करता है, एक revision produce करता है, और हम (draft, revision) pairs पर train करते हैं। Open-source variants: **Tülu 3** और **OLMo 3** post-training में similar self-critique loop use करते हैं; **Anthropic की published Claude constitution** principles का reference set है।
 
 ---
 
@@ -357,7 +357,7 @@ Incidents के लिए:
 |-------|-------|
 | **Alignment data** | Tülu 3, UltraFeedback, HelpSteer3, PKU-SafeRLHF, Anthropic HH |
 | **Content classifier (open)** | Llama Guard 4, Aegis 2.0, ShieldGemma, Granite Guardian, GPT-OSS Guard |
-| **Content classifier (API)** | OpenAI Moderation, Mistral Moderation, Google PaLM Safety, Anthropic Constitutional Classifiers |
+| **Content classifier (API)** | OpenAI Moderation, Mistral Moderation, Google ShieldGemma 2, Anthropic Constitutional Classifiers |
 | **Prompt-injection defense** | Lakera, Prompt Security, NVIDIA NeMo Guardrails, Robust Intelligence |
 | **Hallucination detection** | TruthfulQA, FActScore, AttributedQA evals |
 | **Red-team** | PyRIT, Inspect-AI, Garak, HarmBench, StrongREJECT |
@@ -398,4 +398,6 @@ A typical 2026 production stack के लिए: **content के लिए Lla
 - **Liang et al. HELM** — comprehensive multi-dimensional evaluation, including safety।
 - **`inspect-ai`** — UK AISI's framework, broad safety evaluation tooling।
 
-ये safety chapter है। यहां से curriculum — for now — complete है: आप एक LLM product end to end build, train, deploy, wrap, और *defend* कर सकते हो।
+ये safety chapter है: आप अब एक LLM product end to end build, train, deploy, wrap, और *defend* कर सकते हो।
+
+Next: **[24-gemma-4-deep-dive.md](./24-gemma-4-deep-dive.md)** — एक frontier open model, end to end।

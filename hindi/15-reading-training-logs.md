@@ -29,7 +29,7 @@ wandb.init(
 फिर loop में:
 
 ```python
-wandb.log({'train/loss': loss, 'train/lr': lr, ...}, step=global_step)
+wandb.log({'train/loss': loss, 'train/lr': lr}, step=global_step)
 ```
 
 ये पूरा API है। नीचे जो भी है *क्या* log करना है।
@@ -432,4 +432,6 @@ A panel layout जो long run के एक hour के अंदर ख़ु�
 - OLMo 3 / SmolLM3 training reports — वो often अपनी actual W&B charts publish करते हैं, "अच्छा कैसा दिखता है" के लिए excellent calibration।
 - **`wandb-sweeps`** small-scale ablations पर hyperparameter optimization के लिए।
 
-That's curriculum का end. **अब कुछ train करो और charts पढ़ो।**
+**अब कुछ train करो और charts पढ़ो।**
+
+Next: **[16-frontier-models-2026.md](./16-frontier-models-2026.md)** — 2026 frontier models अंदर से actually कैसे दिखते हैं।

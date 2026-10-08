@@ -204,7 +204,7 @@ Key methods:
 ### Common Layers
 
 ```python
-nn.Linear(in, out, bias=True)
+nn.Linear(d_in, d_out, bias=True)
 nn.Embedding(num_embeddings, embedding_dim)
 nn.LayerNorm(d)
 nn.RMSNorm(d)
@@ -212,7 +212,7 @@ nn.Dropout(p=0.1)
 nn.GELU(); nn.SiLU(); nn.ReLU()
 nn.MultiheadAttention(d, h, batch_first=True)
 nn.Conv2d(in_c, out_c, kernel_size)
-nn.LSTM(in, hidden, batch_first=True)
+nn.LSTM(d_in, hidden, batch_first=True)
 ```
 
 ---
@@ -370,9 +370,9 @@ Caveats:
 
 Real LLM training के लिए आप multiple GPUs चाहते हो। PyTorch offer करता है:
 
-- **DDP** (`DistributedDataParallel`) — हर GPU पर model replicate करो, उन सब के across gradients sum करो। Easy। Single-GPU memory से limited।
-- **FSDP** (`FullyShardedDataParallel`) — parameters/gradients/optimizer state को GPUs के across shard करो। आपको ऐसे models train करने देता है जो एक GPU पर fit नहीं होते।
-- **Tensor / pipeline parallelism** — truly huge models के लिए। Megatron-LM, DeepSpeed, और `torch.distributed.tensor` जैसे frameworks ये provide करते हैं।
+- **FSDP2** (`fully_shard`) — parameters, gradients, और optimizer state को GPUs के across shard करो। किसी भी serious काम के लिए default, और जब model एक GPU पर fit हो तब भी कुछ extra cost नहीं।
+- **DDP** (`DistributedDataParallel`) — हर GPU पर model replicate करो, उन सब के across gradients sum करो। सिर्फ़ toy runs के लिए जो एक GPU पर fit हों।
+- **Tensor / pipeline / context parallelism** — truly huge models और long contexts के लिए। torchtitan और Megatron-LM इन्हें `torch.distributed.tensor` पर build करते हैं।
 
 हम इसे **[14-training-small-language-models.md](./14-training-small-language-models.md)** में properly cover करते हैं।
 

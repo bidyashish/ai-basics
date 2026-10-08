@@ -256,7 +256,7 @@ Pairwise judge eval, लेकिन **length bias penalize करो**। Anthr
 
 अगर आप real user prompts use कर सकते हो (consent और privacy controls के साथ), वो SFT के लिए किसी भी synthetic dataset को beat करते हैं। Synthetic data आपको एक model देता है जो *synthetic distribution* पर अच्छा है। Real-user data आपको एक model देता है जो आपके actual product पर अच्छा है।
 
-जब आपको synthetic use करना ही पड़े, **prompts ऐसे लिखो जैसे users actually लिखते हैं** (typos, half-sentences, abbreviated, no preamble), GPT-4 जैसे generate करता है (full grammar, polite phrasing, "मैं जानना चाहूंगा अगर आप कृपया कर सकें...") नहीं।
+जब आपको synthetic use करना ही पड़े, **prompts ऐसे लिखो जैसे users actually लिखते हैं** (typos, half-sentences, abbreviated, no preamble), frontier chat model जैसे generate करता है (full grammar, polite phrasing, "मैं जानना चाहूंगा अगर आप कृपया कर सकें...") नहीं।
 
 ### 6.2 Benchmark-shaped Data पर Train मत करो
 

@@ -872,4 +872,6 @@ If any item is "no" or "I think so," you don't yet have a 10k-QPS-grade system.
 - **k6 + genai-perf** — load testing toolkits actually designed for streaming token APIs.
 - **The OpenAI / Anthropic public API SLOs and incident postmortems** — the most honest accounts of what production LLM serving looks like at scale.
 
-That's the end of the curriculum. If you've read chapters 00 → 17, you can now pretrain a small LM, build it from scratch, fine-tune it, quantize it, and serve it to ten thousand users without bankrupting yourself. **Now go ship something.**
+If you've read chapters 00 → 17, you can now pretrain a small LM, build it from scratch, fine-tune it, quantize it, and serve it to ten thousand users without bankrupting yourself. **Now go ship something.**
+
+Next: **[18-ai-apps-and-agents.md](./18-ai-apps-and-agents.md)** — wrapping a served model in a real product: tools, agents, cost.

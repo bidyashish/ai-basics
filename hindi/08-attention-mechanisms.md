@@ -1,6 +1,6 @@
 # 08 · Attention Mechanisms — Transformer का Heart
 
-> **TL;DR** Attention एक soft, differentiable lookup है। हर **query** vector decide करता है कि softmax use करते हुए हर **key/value** pair से कितना read करना है। Self-attention layer में हर token query भी है और key/value भी, इसलिए tokens एक-दूसरे से "बात" करते हैं। Multi-head attention कई smaller heads के साथ इसे parallel में करता है। Causal masking tokens को सिर्फ़ past देखने के लिए force करती है। **2026 में, आप `F.scaled_dot_product_attention` (जो hood के नीचे Flash Attention 2/3 use करता है) call करते हो और कभी inner loop खुद नहीं लिखते।**
+> **TL;DR** Attention एक soft, differentiable lookup है। हर **query** vector decide करता है कि softmax use करते हुए हर **key/value** pair से कितना read करना है। Self-attention layer में हर token query भी है और key/value भी, इसलिए tokens एक-दूसरे से "बात" करते हैं। Multi-head attention कई smaller heads के साथ इसे parallel में करता है। Causal masking tokens को सिर्फ़ past देखने के लिए force करती है। **2026 में, आप `F.scaled_dot_product_attention` (जो under the hood FlashAttention या cuDNN fused kernels को dispatch करता है) call करते हो और कभी inner loop खुद नहीं लिखते।**
 
 ## 1. Intuition
 
@@ -112,7 +112,7 @@ class MultiHeadAttention(nn.Module):
 
 ## 6. Flash Attention (2026 का Default)
 
-Flash Attention (Dao et al. 2022) और इसके successors (FA2 2023, FA3 2024) **mathematically same operation** हैं लेकिन एक tiled, IO-aware kernel use करते हैं जो:
+Flash Attention (Dao et al. 2022) और इसके successors (FA2 2023, FA3 2024, FA4 2025 for Blackwell) **mathematically same operation** हैं लेकिन एक tiled, IO-aware kernel use करते हैं जो:
 
 - Full `(T, T)` matrix HBM में कभी materialize नहीं करता।
 - Online softmax use करता है (एक streaming-friendly normalization)।

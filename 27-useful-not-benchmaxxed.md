@@ -256,7 +256,7 @@ Build this into your eval CI. Always report `(score, mean_tokens, mean_latency)`
 
 If you can use real user prompts (with consent and privacy controls), they beat any synthetic dataset for SFT. Synthetic data gives you a model that's good at *the synthetic distribution*. Real-user data gives you a model that's good at your actual product.
 
-When you must use synthetic, **write the prompts the way users actually write** (typos, half-sentences, abbreviated, no preamble), not the way GPT-4 generates them (full grammar, polite phrasing, "I would like to know if you could please...").
+When you must use synthetic, **write the prompts the way users actually write** (typos, half-sentences, abbreviated, no preamble), not the way a frontier chat model generates them (full grammar, polite phrasing, "I would like to know if you could please...").
 
 ### 6.2 Don't train on benchmark-shaped data
 

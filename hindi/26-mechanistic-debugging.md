@@ -655,7 +655,7 @@ plt.legend(); plt.savefig("steering_pca.png")
 
 | Question | कैसे measure करें |
 |----------|----------------|
-| क्या target behavior change हुआ? | 100+ contrastive prompts पर A/B, GPT-5 / Claude / human से judge |
+| क्या target behavior change हुआ? | 100+ contrastive prompts पर A/B, GPT-6 / Claude / human से judge |
 | क्या और कुछ break हुआ? | MMLU subset (200 Qs), HumanEval-100, GSM8K-100 before/after |
 | क्या ये consistent है? | 5 बार different seeds से run; mean और std report करो |
 | क्या ये generalize करता है? | अपने contrastive examples का 20% hold out; सिर्फ़ train set use करके steer |
@@ -722,4 +722,6 @@ Spurious "no" answers      2%         3%              +1%  (acceptable)
 - **Neel Nanda's blog और YouTube** — practical mech-interp tutorials।
 - **Apollo Research और MATS programs** — community-driven mech-interp research output।
 
-Curriculum का end (for now)। Chapters 23-26 के साथ, आप सिर्फ़ LLMs build, train, deploy, और serve नहीं कर सकते — आप **उनका mind read** कर सकते हो और **उन्हें measurable तरीकों से change** कर सकते हो बिना retraining। Release ladder (25), in-the-weeds debugger (26), और safety stack (23) "मैंने एक LLM बनाया" को "मैं एक ship और operate कर सकता हूं" से separate करते हैं।
+Chapters 23-26 के साथ, आप सिर्फ़ LLMs build, train, deploy, और serve नहीं कर सकते — आप **उनका mind read** कर सकते हो और **उन्हें measurable तरीकों से change** कर सकते हो बिना retraining। Release ladder (25), in-the-weeds debugger (26), और safety stack (23) "मैंने एक LLM बनाया" को "मैं एक ship और operate कर सकता हूं" से separate करते हैं।
+
+Next: **[27-useful-not-benchmaxxed.md](./27-useful-not-benchmaxxed.md)** — ऐसे models बनाना जो लोग actually use करें, सिर्फ़ score करने वाले नहीं।

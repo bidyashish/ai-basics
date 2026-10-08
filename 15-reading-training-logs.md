@@ -29,7 +29,7 @@ wandb.init(
 Then in the loop:
 
 ```python
-wandb.log({'train/loss': loss, 'train/lr': lr, ...}, step=global_step)
+wandb.log({'train/loss': loss, 'train/lr': lr}, step=global_step)
 ```
 
 That's the whole API. Everything below is *what* to log.
@@ -432,4 +432,6 @@ If any of those is off, **stop and fix now**. A 4-day run started wrong is a 4-d
 - The OLMo 3 / SmolLM3 training reports — they often publish their actual W&B charts, an excellent calibration for "what good looks like."
 - **`wandb-sweeps`** for hyperparameter optimization on small-scale ablations.
 
-That's the end of the curriculum. **Now go train something and read the charts.**
+**Now go train something and read the charts.**
+
+Next: **[16-frontier-models-2026.md](./16-frontier-models-2026.md)** — what the 2026 frontier models actually look like inside.

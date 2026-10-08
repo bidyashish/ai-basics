@@ -245,7 +245,7 @@ You are an agent. हर step के लिए:
 - जब आपके पास enough information हो, final answer दो।
 ```
 
-Modern reasoning models (Claude Opus 5.5 thinking के साथ, GPT-5 reasoning के साथ, DeepSeek-R1) effectively ReAct को model में bake कर देते हैं — आप बस उन्हें tools देते हो और वो internally reason करके act करते हैं।
+Modern reasoning models (Claude Opus 5.5 thinking के साथ, GPT-6 Sol reasoning के साथ, DeepSeek-R1) effectively ReAct को model में bake कर देते हैं — आप बस उन्हें tools देते हो और वो internally reason करके act करते हैं।
 
 ### Pattern 5 — Plan-then-execute
 
@@ -792,3 +792,5 @@ if __name__ == "__main__":
 - **हर तीन महीने pricing pages sweep करो** — providers regularly prices cut करते हैं; पुरानी assumptions fast stale हो जाती हैं।
 
 अगर आपने chapters 00 → 18 के through कर लिया: आप एक model end-to-end समझते हो (chapters 00-13), उसे कैसे train करना है (14-15), 2026 frontier model कैसा दिखता है (16), उसे scale पर कैसे serve करना है (17), और अब उसे एक real product में कैसे wrap करना है। **बाकी taste और shipping है। Build करने जाओ।**
+
+Next: **[19-evaluation.md](./19-evaluation.md)** — ये जानना कि इसमें से कुछ actually काम करता है या नहीं।

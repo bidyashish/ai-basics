@@ -153,7 +153,7 @@ Muon (Jordan et al. 2024) एक momentum optimizer है जो, Adam-style pe
 
 - Dense LLM pretraining पर compute में **2× faster** train होता है।
 - Big runs पर AdamW से better, small पर comparable।
-- **Moonshot/Kimi K2** द्वारा used (पहला frontier-scale Muon-trained model, 2024-2025) और 2026 में कई open-source recipes ने adopt किया।
+- **Moonshot/Kimi K2** द्वारा used (पहला frontier-scale Muon-trained model, July 2025) और 2026 में कई open-source recipes ने adopt किया।
 
 ```python
 from muon import Muon
