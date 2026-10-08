@@ -1,6 +1,6 @@
 # 22 · Multimodal Models — Vision, Audio, और Beyond
 
-> **TL;DR** एक multimodal LLM (MLLM / VLM) एक text LLM है जिसमें images, audio, या video के लिए **encoder modules** हैं जो **soft tokens** (continuous embeddings) produce करते हैं और same residual stream में inject होते हैं। Architecturally: **vision encoder (ViT या SigLIP) → projector → LLM**। 2026 frontier (Gemma 4, Qwen 3.6-VL, Llama 4, GPT-5, Claude Opus 4.7, Gemini 2.5) सब native multi-resolution और (कुछ के लिए) audio के साथ ये pattern share करते हैं। ये chapter दिखाता है architecture कैसे काम करता है, practice में VLMs कैसे use करें, QLoRA के साथ एक VLM कैसे fine-tune करें, और eval benchmarks actually क्या मतलब करते हैं। Code English में रहता है; math small है।
+> **TL;DR** एक multimodal LLM (MLLM / VLM) एक text LLM है जिसमें images, audio, या video के लिए **encoder modules** हैं जो **soft tokens** (continuous embeddings) produce करते हैं और same residual stream में inject होते हैं। Architecturally: **vision encoder (ViT या SigLIP) → projector → LLM**। 2026 frontier (Gemma 4, Qwen 3.6-VL, Llama 4, GPT-5, Claude Opus 5.5, Gemini 2.5) सब native multi-resolution और (कुछ के लिए) audio के साथ ये pattern share करते हैं। ये chapter दिखाता है architecture कैसे काम करता है, practice में VLMs कैसे use करें, QLoRA के साथ एक VLM कैसे fine-tune करें, और eval benchmarks actually क्या मतलब करते हैं। Code English में रहता है; math small है।
 
 ---
 
@@ -91,7 +91,7 @@ Headline models, उनके architectural choices, और rough capability:
 | **Qwen 3.6-27B** | Qwen-VL-style 2D RoPE, dynamic tiles | MLP | Qwen 3.6 hybrid | up to ~16k | OCR + agentic के लिए best open VLM |
 | **Llama 4** | NVIDIA NV-CLIP variant | MLP | Llama 4 dense | dynamic | open frontier multimodal |
 | **GPT-5** | proprietary, multi-tile | proprietary | GPT-5 | dynamic | best general VLM |
-| **Claude Opus 4.7** | proprietary | proprietary | Claude | ~1.5k @ 1024² | strongest agentic vision |
+| **Claude Opus 5.5** | proprietary | proprietary | Claude | ~1.5k @ 1024² | strongest agentic vision |
 | **Gemini 2.5 Pro** | proprietary, very efficient | proprietary | Gemini | ~258 / tile | best long-video, 1M+ context |
 | **Pixtral 12B** | Mistral's, native AR | MLP | Mistral Nemo | dynamic | strong open mid-size |
 | **InternVL3** | InternViT-6B | pixel-shuffle MLP | various LLMs | dynamic | top open document understanding |
@@ -122,7 +122,7 @@ client = anthropic.Anthropic()
 img_b64 = base64.b64encode(open("chart.png","rb").read()).decode()
 
 resp = client.messages.create(
-    model="claude-sonnet-4-6",
+    model="claude-sonnet-5-5",
     max_tokens=1024,
     messages=[{"role":"user","content":[
         {"type":"image","source":{"type":"base64","media_type":"image/png",
@@ -136,11 +136,11 @@ print(resp.content[0].text)
 OpenAI, Gemini, और Mistral image attachments के लिए slightly different field names के साथ same `messages` shape use करते हैं। `transformers` के via self-hosted:
 
 ```python
-from transformers import AutoProcessor, AutoModelForVision2Seq
+from transformers import AutoProcessor, AutoModelForImageTextToText
 import torch
 
-m = AutoModelForVision2Seq.from_pretrained("google/gemma-4-31b-it",
-        torch_dtype=torch.bfloat16, device_map="auto")
+m = AutoModelForImageTextToText.from_pretrained("google/gemma-4-31b-it",
+        dtype=torch.bfloat16, device_map="auto")
 proc = AutoProcessor.from_pretrained("google/gemma-4-31b-it")
 
 inputs = proc.apply_chat_template(
@@ -220,7 +220,7 @@ Vision encoder fine-tuning rare है और usually hurts unless आपका 
 ### VLM के लिए QLoRA Recipe (Sketch)
 
 ```python
-from transformers import AutoModelForVision2Seq, BitsAndBytesConfig, AutoProcessor
+from transformers import AutoModelForImageTextToText, BitsAndBytesConfig, AutoProcessor
 from peft import LoraConfig
 from trl import SFTTrainer, SFTConfig
 import torch
@@ -228,7 +228,7 @@ import torch
 bnb = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type="nf4",
                          bnb_4bit_compute_dtype=torch.bfloat16,
                          bnb_4bit_use_double_quant=True)
-m = AutoModelForVision2Seq.from_pretrained(
+m = AutoModelForImageTextToText.from_pretrained(
     "google/gemma-4-e4b-it",
     quantization_config=bnb, device_map="auto",
     attn_implementation="flash_attention_2",
@@ -347,7 +347,7 @@ Capability-aside, hallucination explicitly evaluate करो: VLMs objects inve
 - **हमेशा image-token usage log करो**; एक image एक text turn का 5-15× है।
 - **भेजने से पहले resize / crop करो**; 768² ज़्यादातर tasks के लिए enough है।
 - OCR / docs के लिए: **Qwen-VL, InternVL3, Pixtral, Gemma 4 31B**।
-- Agentic vision (UI, screenshots) के लिए: **Claude Opus 4.7, GPT-5, Qwen 3.6**।
+- Agentic vision (UI, screenshots) के लिए: **Claude Opus 5.5, GPT-5, Qwen 3.6**।
 - Video / long context के लिए: **Gemini 2.5 Pro**।
 - On-device multimodal के लिए: **Gemma 4 E2B/E4B**।
 - ASR के लिए: **Whisper-v3-turbo** (open) या **Deepgram** (API)।
@@ -363,7 +363,7 @@ Capability-aside, hallucination explicitly evaluate करो: VLMs objects inve
 - **InternVL3 paper** — fine-grained multi-resolution design।
 - **Molmo paper** (AI2 2024) — grounding के साथ open multimodal recipe।
 - **Llama 3.2-Vision blog और code** — accessible reference open VLM।
-- **`transformers` `AutoModelForVision2Seq` docs** — quick experimentation के लिए।
+- **`transformers` `AutoModelForImageTextToText` docs** — quick experimentation के लिए।
 - **vLLM multimodal serving docs** — production deployment।
 - **MMMU और POPE leaderboards** — frontier capabilities और hallucination tradeoffs track करो।
 

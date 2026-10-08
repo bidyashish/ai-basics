@@ -142,7 +142,6 @@ Translation: the 31B Dense is roughly the **strongest open multimodal model unde
 |---------|-------------|--------------------|------------|---------|
 | **Qwen 3.6-27B** (Dense) | 27B | 27B | text + vision | 262k native, ~1M with YaRN |
 | **Qwen 3.6-35B-A3B** (MoE) | 35B | ~3B | text + vision | 262k native, ~1M with YaRN |
-| Qwen 3.6 Max Preview | (closed) | (closed) | text + vision | very long |
 
 License: **Apache 2.0**. Same situation as Gemma 4 — the open release is genuinely permissive.
 
@@ -223,7 +222,7 @@ Both models are trained at 262k context natively. The combination of:
 - **3:1 DeltaNet:Attention** (memory and compute friendly at long T),
 - **YaRN scaling** built into the config,
 
-extends to **~1M tokens** at inference with a small fine-tuning anneal, and the Qwen team ships a `Qwen3.6-1M` variant that has done that anneal for you.
+extends to **~1M tokens** at inference with YaRN plus a short long-context anneal. Only the 27B and 35B-A3B checkpoints (bf16 and FP8) are published; there is no separate 1M checkpoint.
 
 ### Headline benchmarks
 
@@ -241,8 +240,8 @@ The story: a **27B dense** Apache-licensed open model, runnable on a single 80 G
 
 ### Implementation notes
 
-- HuggingFace `transformers` ≥ 4.55 has the Qwen 3.6 model class with custom Gated DeltaNet kernels.
-- vLLM ≥ 0.7.x supports the hybrid stack natively (vLLM team co-designed the Triton kernel for Gated DeltaNet).
+- Current HuggingFace `transformers` (5.x) has the Qwen 3.6 model class with custom Gated DeltaNet kernels.
+- Current vLLM (0.3x) supports the hybrid stack natively (vLLM team co-designed the Triton kernel for Gated DeltaNet).
 - The DeltaNet kernel is harder to write than standard attention; if you're rolling your own, use the `flash-linear-attention` library for reference implementations.
 - For MoE-A3B, set `--enable-expert-parallel` in vLLM to spread the 256 experts across multiple GPUs; otherwise memory will blow up on 1 GPU.
 
@@ -250,7 +249,6 @@ The story: a **27B dense** Apache-licensed open model, runnable on a single 80 G
 
 - **27B Dense** — agentic coding, IDE assistants, anywhere quality > throughput. The current open SOTA on SWE-bench.
 - **35B-A3B MoE** — high-throughput chat, RAG, agents that need speed; same architecture and tokenizer as 27B but inference compute of a 3B model.
-- **1M variant** — repository-scale code analysis, long document reasoning.
 
 ---
 
@@ -300,11 +298,11 @@ Need cheap high-throughput chat?
 Need best reasoning / math under 50B?
    → Gemma 4 31B Dense  (AIME 2026: 89.2)
 
-Need a 1M-context analyst?
-   → Qwen 3.6-1M
+Need very long context (256k-1M)?
+   → Qwen 3.6-27B with YaRN scaling
 
 Need to fine-tune cheaply on 1 GPU?
-   → Gemma 4 E4B or Qwen 3.6-7B (if released) with QLoRA
+   → Gemma 4 E4B or Qwen3-4B with QLoRA
 ```
 
 ---
@@ -327,9 +325,5 @@ Need to fine-tune cheaply on 1 GPU?
 - [Qwen3.6-35B-A3B — HuggingFace](https://huggingface.co/Qwen/Qwen3.6-35B-A3B)
 - [Qwen3.6-27B — HuggingFace](https://huggingface.co/Qwen/Qwen3.6-27B)
 - [Qwen3.6-27B blog — qwen.ai](https://qwen.ai/blog?id=qwen3.6-27b)
-- [Alibaba Qwen Team Releases Qwen3.6-27B — MarkTechPost (2026-04-22)](https://www.marktechpost.com/2026/04/22/alibaba-qwen-team-releases-qwen3-6-27b-a-dense-open-weight-model-outperforming-397b-moe-on-agentic-coding-benchmarks/)
-- [Qwen 3.6 Complete Guide — InsiderLLM](https://insiderllm.com/guides/qwen-3-6-local-ai-guide/)
-- [Qwen3.6-27B VRAM Requirements — Will It Run AI](https://willitrunai.com/blog/qwen-3-6-27b-vram-requirements)
-- [Qwen 3.6-27B vs 35B-A3B — AIMadeTools](https://www.aimadetools.com/blog/qwen-3-6-27b-vs-35b-a3b/)
 
 Next: **[17-production-inference.md](./17-production-inference.md)** — how to actually serve any of these to 10,000 customers.

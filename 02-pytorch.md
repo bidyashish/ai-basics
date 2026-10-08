@@ -150,7 +150,7 @@ When you don't need gradients (evaluation, inference), wrap the code to save mem
 with torch.no_grad():
     preds = model(x)
 
-# Faster, stricter version (PyTorch 1.9+)
+# Faster, stricter version
 with torch.inference_mode():
     preds = model(x)
 ```
@@ -207,7 +207,7 @@ Key methods:
 nn.Linear(in, out, bias=True)
 nn.Embedding(num_embeddings, embedding_dim)
 nn.LayerNorm(d)
-nn.RMSNorm(d)                 # PyTorch 2.4+
+nn.RMSNorm(d)
 nn.Dropout(p=0.1)
 nn.GELU(); nn.SiLU(); nn.ReLU()
 nn.MultiheadAttention(d, h, batch_first=True)
@@ -353,7 +353,7 @@ For sharing models between machines, also use `safetensors` (`pip install safete
 
 ## 10. `torch.compile` — the easy speedup
 
-PyTorch 2.0+ has a JIT compiler. One line, often 1.3-2× faster:
+PyTorch ships a JIT compiler. One line, often 1.3-2× faster:
 
 ```python
 model = torch.compile(model)

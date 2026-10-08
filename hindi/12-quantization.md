@@ -90,7 +90,7 @@ Storage: `W_int4` per element 4 bits है, `scales` और `zeros` ~1% overhea
 
 - 4-bit floating point (E2M1) B100/B200 पर hardware support के साथ।
 - int4 से better range, dramatic speedups।
-- Currently production stacks (TensorRT-LLM, vLLM) में emerging; late 2026 तक likely dominate।
+- Blackwell GPUs पर production stacks (TensorRT-LLM, vLLM) में supported।
 
 ### BitNet b1.58 (1.58-bit)
 
@@ -146,39 +146,42 @@ y = (x / s) @ (W * s)   # mathematically same as x @ W
 
 `s_c` को activation magnitudes के basis पर हर input channel के लिए choose करके, आप उन channels को "protect" करते हो जो matter करते हैं और rounding loss को बाकी bear करने देते हो।
 
-Practice में, आप **`autoawq`** library use करते हो:
+Practice में, **`llm-compressor`** use करो (vLLM का quantization toolkit; पुरानी `autoawq` library archived है):
 
 ```python
-from awq import AutoAWQForCausalLM
-from transformers import AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from llmcompressor import oneshot
+from llmcompressor.modifiers.quantization import QuantizationModifier
+from llmcompressor.modifiers.transform.awq import AWQModifier
 
-model_path = 'Qwen/Qwen2.5-7B-Instruct'
-quant_path = 'qwen2.5-7b-awq'
-quant_config = {'zero_point': True, 'q_group_size': 128, 'w_bit': 4, 'version': 'GEMM'}
+model_path = 'Qwen/Qwen3-8B'
+quant_path = 'qwen3-8b-awq'
 
-model = AutoAWQForCausalLM.from_pretrained(model_path, safetensors=True)
+model = AutoModelForCausalLM.from_pretrained(model_path)
 tok = AutoTokenizer.from_pretrained(model_path)
-model.quantize(tok, quant_config=quant_config)
-model.save_quantized(quant_path)
+recipe = [AWQModifier(duo_scaling='both'),
+          QuantizationModifier(targets=['Linear'], scheme='W4A16_ASYM', ignore=['lm_head'])]
+oneshot(model=model, dataset='perfectblend', splits='train[:512]',   # or any HF Dataset of your own text
+        recipe=recipe, max_seq_length=512, num_calibration_samples=256)
+model.save_pretrained(quant_path, save_compressed=True); tok.save_pretrained(quant_path)
 ```
 
-फिर vLLM के साथ load करो: `vllm serve qwen2.5-7b-awq --quantization awq_marlin`।
+फिर vLLM के साथ load करो: `vllm serve qwen3-8b-awq` (vLLM `compressed-tensors` config खुद पढ़ लेता है; `--quantization` flag की ज़रूरत नहीं)।
 
 ---
 
 ## 7. GPTQ Code में (Sketch)
 
-Same idea, different algorithm. `auto-gptq` use करो:
+Same idea, different algorithm. Same library, बस modifier बदलो (`auto-gptq` unmaintained है; `gptqmodel` उसका standalone successor है):
 
 ```python
-from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
-qcfg = BaseQuantizeConfig(bits=4, group_size=128, desc_act=True)
-model = AutoGPTQForCausalLM.from_pretrained(model_path, qcfg)
+from llmcompressor.modifiers.gptq import GPTQModifier
+recipe = GPTQModifier(targets='Linear', scheme='W4A16', ignore=['lm_head'])
 
 # calibration data pass करो — ~512 samples enough हैं
-calib = [tok(text, return_tensors='pt') for text in calibration_texts[:512]]
-model.quantize(calib)
-model.save_quantized('qwen-7b-gptq')
+oneshot(model=model, dataset='perfectblend', splits='train[:512]', recipe=recipe,
+        max_seq_length=2048, num_calibration_samples=512)
+model.save_pretrained('qwen3-8b-gptq', save_compressed=True)
 ```
 
 Best quality के लिए calibration data आपकी serving distribution match करना चाहिए (chat? code? math?)।
@@ -189,7 +192,7 @@ Best quality के लिए calibration data आपकी serving distribution
 
 ```bash
 # HF model को GGUF में convert करो (llama.cpp tooling use करता है)
-python convert_hf_to_gguf.py Qwen/Qwen2.5-7B-Instruct --outfile qwen.gguf
+python convert_hf_to_gguf.py Qwen/Qwen3-8B --outfile qwen.gguf
 
 # Q4_K_M पर quantize करो
 ./llama-quantize qwen.gguf qwen-q4km.gguf Q4_K_M
@@ -198,20 +201,20 @@ python convert_hf_to_gguf.py Qwen/Qwen2.5-7B-Instruct --outfile qwen.gguf
 ./llama-cli -m qwen-q4km.gguf -p "Hello" -n 200
 ```
 
-`Ollama` इसे wrap करता है; `pip install ollama` फिर `ollama run qwen2.5:7b-instruct-q4_K_M`। Most consumer-LLM apps (LM Studio, Jan, etc.) इस pipeline को use करते हैं।
+`Ollama` इसे wrap करता है; `pip install ollama` फिर `ollama run qwen3:8b`। Most consumer-LLM apps (LM Studio, Jan, etc.) इस pipeline को use करते हैं।
 
 ---
 
 ## 9. FP8 Inference (H100 और beyond)
 
 ```bash
-vllm serve meta-llama/Llama-3.1-70B-Instruct-FP8 --quantization fp8
+vllm serve Qwen/Qwen3.6-27B-FP8 --quantization fp8
 ```
 
 अगर आपका model FP8 में published नहीं था, आप इसे on-the-fly quantize कर सकते हो:
 
 ```bash
-vllm serve meta-llama/Llama-3.1-70B-Instruct \
+vllm serve Qwen/Qwen3.6-27B \
   --quantization fp8 \
   --kv-cache-dtype fp8
 ```
@@ -261,7 +264,7 @@ from peft import LoraConfig, get_peft_model
 bnb = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type='nf4',
                          bnb_4bit_compute_dtype=torch.bfloat16,
                          bnb_4bit_use_double_quant=True)
-model = AutoModelForCausalLM.from_pretrained('Qwen/Qwen2.5-7B', quantization_config=bnb)
+model = AutoModelForCausalLM.from_pretrained('Qwen/Qwen3-8B', quantization_config=bnb)
 
 lora = LoraConfig(r=16, lora_alpha=32, target_modules=['q_proj','k_proj','v_proj','o_proj'],
                   lora_dropout=0.05, bias='none', task_type='CAUSAL_LM')
@@ -276,28 +279,31 @@ QLoRA के 2025-2026 successors:
 
 ---
 
-## 13. End-to-end Example: Single GPU पर Qwen2.5-7B AWQ Ship करो
+## 13. End-to-end Example: Single GPU पर Qwen3-8B AWQ Ship करो
 
 ```bash
-pip install autoawq vllm
+pip install llmcompressor vllm
 
 # Quantize
 python -c "
-from awq import AutoAWQForCausalLM
-from transformers import AutoTokenizer
-m = AutoAWQForCausalLM.from_pretrained('Qwen/Qwen2.5-7B-Instruct')
-t = AutoTokenizer.from_pretrained('Qwen/Qwen2.5-7B-Instruct')
-m.quantize(t, quant_config={'zero_point': True, 'q_group_size': 128, 'w_bit': 4, 'version': 'GEMM'})
-m.save_quantized('./qwen2.5-7b-awq'); t.save_pretrained('./qwen2.5-7b-awq')
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from llmcompressor import oneshot
+from llmcompressor.modifiers.quantization import QuantizationModifier
+from llmcompressor.modifiers.transform.awq import AWQModifier
+m = AutoModelForCausalLM.from_pretrained('Qwen/Qwen3-8B')
+t = AutoTokenizer.from_pretrained('Qwen/Qwen3-8B')
+recipe = [AWQModifier(duo_scaling='both'), QuantizationModifier(targets=['Linear'], scheme='W4A16_ASYM', ignore=['lm_head'])]
+oneshot(model=m, dataset='perfectblend', splits='train[:512]', recipe=recipe, max_seq_length=512, num_calibration_samples=256)
+m.save_pretrained('./qwen3-8b-awq', save_compressed=True); t.save_pretrained('./qwen3-8b-awq')
 "
 
 # Serve
-vllm serve ./qwen2.5-7b-awq --quantization awq_marlin --max-model-len 32768
+vllm serve ./qwen3-8b-awq --max-model-len 32768
 
 # Use
 curl http://localhost:8000/v1/chat/completions \
   -H 'Content-Type: application/json' \
-  -d '{"model":"./qwen2.5-7b-awq","messages":[{"role":"user","content":"hi"}]}'
+  -d '{"model":"./qwen3-8b-awq","messages":[{"role":"user","content":"hi"}]}'
 ```
 
 Memory: weights + KV cache के लिए ~5 GB। Throughput: H100 पर ~8000 tokens/sec। Quality: chat के लिए fp16 से indistinguishable।

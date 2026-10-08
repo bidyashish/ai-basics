@@ -1,6 +1,6 @@
 # AI Basics: From Neurons to Language Models
 
-> 🌐 **This guide is available in two languages.** You're reading **English**. Click **[हिंदी / Hindi](./hindi/README.md)** for the full Hindi version (all 24 chapters translated).
+> 🌐 **This guide is available in two languages.** You're reading **English**. Click **[हिंदी / Hindi](./hindi/README.md)** for the full Hindi version (all chapters translated).
 
 A complete, beginner-to-pro guide to building modern language models from scratch. Written in plain English with PyTorch code you can actually run.
 

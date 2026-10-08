@@ -314,7 +314,7 @@ After loading weights, your model's first-token output for a fixed prompt should
 
 ```python
 from transformers import AutoModelForCausalLM
-hf = AutoModelForCausalLM.from_pretrained(ckpt, torch_dtype=torch.bfloat16).to(model.embed_tokens.weight.device)
+hf = AutoModelForCausalLM.from_pretrained(ckpt, dtype=torch.bfloat16).to(model.embed_tokens.weight.device)
 hf.eval(); model.eval()
 
 with torch.inference_mode():

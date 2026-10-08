@@ -224,7 +224,7 @@ model = DDP(model, device_ids=[local_rank])
 
 ### FSDP2 (Fully Sharded Data Parallel, the 2026 default)
 
-Shards parameters, gradients, and optimizer state across GPUs. Like ZeRO Stage 3 but native to PyTorch and more efficient since FSDP2 (PyTorch 2.4+).
+Shards parameters, gradients, and optimizer state across GPUs. Like ZeRO Stage 3 but native to PyTorch and more efficient since FSDP2.
 
 ```python
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
@@ -387,8 +387,8 @@ LoRA / QLoRA SFT is also extremely common — small, cheap, and quality is close
 from trl import SFTTrainer, SFTConfig
 cfg = SFTConfig(output_dir='out', per_device_train_batch_size=2,
                 gradient_accumulation_steps=8, num_train_epochs=2,
-                learning_rate=2e-5, bf16=True, packing=True, max_seq_length=4096)
-trainer = SFTTrainer(model=model, train_dataset=ds, args=cfg, tokenizer=tok)
+                learning_rate=2e-5, bf16=True, packing=True, max_length=4096)
+trainer = SFTTrainer(model=model, train_dataset=ds, args=cfg, processing_class=tok)
 trainer.train()
 ```
 
@@ -407,7 +407,7 @@ from trl import DPOTrainer, DPOConfig
 cfg = DPOConfig(output_dir='out-dpo', beta=0.1, learning_rate=5e-7,
                 per_device_train_batch_size=2, num_train_epochs=1,
                 bf16=True, max_length=4096)
-DPOTrainer(model=model, ref_model=ref, args=cfg, train_dataset=ds, tokenizer=tok).train()
+DPOTrainer(model=model, ref_model=ref, args=cfg, train_dataset=ds, processing_class=tok).train()
 ```
 
 Datasets: UltraFeedback, HelpSteer3, your own preference data. **DPO is the default in 2026 for chat alignment.**

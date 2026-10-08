@@ -309,7 +309,7 @@ def answer(query, k=8):
     docs = retrieve(query, k)
     ctx = "\n\n".join(f"[{d['id']}] {d['text']}" for d in docs)
     resp = client.messages.create(
-        model="claude-sonnet-4-6",
+        model="claude-sonnet-5-5",
         max_tokens=1024,
         system=("Answer using only the documents provided. "
                 "Cite using bracketed IDs like [doc-12]."),

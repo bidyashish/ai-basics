@@ -314,7 +314,7 @@ Weights load करने के बाद, fixed prompt के लिए आप
 
 ```python
 from transformers import AutoModelForCausalLM
-hf = AutoModelForCausalLM.from_pretrained(ckpt, torch_dtype=torch.bfloat16).to(model.embed_tokens.weight.device)
+hf = AutoModelForCausalLM.from_pretrained(ckpt, dtype=torch.bfloat16).to(model.embed_tokens.weight.device)
 hf.eval(); model.eval()
 
 with torch.inference_mode():

@@ -90,7 +90,7 @@ Storage: `W_int4` is 4 bits per element, `scales` and `zeros` add ~1% overhead. 
 
 - 4-bit floating point (E2M1) with hardware support on B100/B200.
 - Better range than int4, dramatic speedups.
-- Currently emerging in production stacks (TensorRT-LLM, vLLM); will likely dominate by late 2026.
+- Supported in production stacks (TensorRT-LLM, vLLM) on Blackwell GPUs.
 
 ### BitNet b1.58 (1.58-bit)
 
@@ -146,39 +146,42 @@ y = (x / s) @ (W * s)   # mathematically same as x @ W
 
 By choosing `s_c` for each input channel based on activation magnitudes, you "protect" the channels that matter and let the others bear the rounding loss.
 
-In practice, you use the **`autoawq`** library:
+In practice, use **`llm-compressor`** (vLLM's quantization toolkit; the older `autoawq` library is archived):
 
 ```python
-from awq import AutoAWQForCausalLM
-from transformers import AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from llmcompressor import oneshot
+from llmcompressor.modifiers.quantization import QuantizationModifier
+from llmcompressor.modifiers.transform.awq import AWQModifier
 
-model_path = 'Qwen/Qwen2.5-7B-Instruct'
-quant_path = 'qwen2.5-7b-awq'
-quant_config = {'zero_point': True, 'q_group_size': 128, 'w_bit': 4, 'version': 'GEMM'}
+model_path = 'Qwen/Qwen3-8B'
+quant_path = 'qwen3-8b-awq'
 
-model = AutoAWQForCausalLM.from_pretrained(model_path, safetensors=True)
+model = AutoModelForCausalLM.from_pretrained(model_path)
 tok = AutoTokenizer.from_pretrained(model_path)
-model.quantize(tok, quant_config=quant_config)
-model.save_quantized(quant_path)
+recipe = [AWQModifier(duo_scaling='both'),
+          QuantizationModifier(targets=['Linear'], scheme='W4A16_ASYM', ignore=['lm_head'])]
+oneshot(model=model, dataset='perfectblend', splits='train[:512]',   # or any HF Dataset of your own text
+        recipe=recipe, max_seq_length=512, num_calibration_samples=256)
+model.save_pretrained(quant_path, save_compressed=True); tok.save_pretrained(quant_path)
 ```
 
-Then load with vLLM: `vllm serve qwen2.5-7b-awq --quantization awq_marlin`.
+Then load with vLLM: `vllm serve qwen3-8b-awq` (vLLM reads the `compressed-tensors` config; no `--quantization` flag needed).
 
 ---
 
 ## 7. GPTQ in code (sketch)
 
-Same idea, different algorithm. Use `auto-gptq`:
+Same idea, different algorithm. Same library, different modifier (`auto-gptq` is unmaintained; `gptqmodel` is its standalone successor):
 
 ```python
-from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
-qcfg = BaseQuantizeConfig(bits=4, group_size=128, desc_act=True)
-model = AutoGPTQForCausalLM.from_pretrained(model_path, qcfg)
+from llmcompressor.modifiers.gptq import GPTQModifier
+recipe = GPTQModifier(targets='Linear', scheme='W4A16', ignore=['lm_head'])
 
 # pass calibration data — ~512 samples is enough
-calib = [tok(text, return_tensors='pt') for text in calibration_texts[:512]]
-model.quantize(calib)
-model.save_quantized('qwen-7b-gptq')
+oneshot(model=model, dataset='perfectblend', splits='train[:512]', recipe=recipe,
+        max_seq_length=2048, num_calibration_samples=512)
+model.save_pretrained('qwen3-8b-gptq', save_compressed=True)
 ```
 
 Calibration data should match your serving distribution (chat? code? math?) for best quality.
@@ -189,7 +192,7 @@ Calibration data should match your serving distribution (chat? code? math?) for 
 
 ```bash
 # convert HF model to GGUF (uses llama.cpp tooling)
-python convert_hf_to_gguf.py Qwen/Qwen2.5-7B-Instruct --outfile qwen.gguf
+python convert_hf_to_gguf.py Qwen/Qwen3-8B --outfile qwen.gguf
 
 # quantize to Q4_K_M
 ./llama-quantize qwen.gguf qwen-q4km.gguf Q4_K_M
@@ -198,20 +201,20 @@ python convert_hf_to_gguf.py Qwen/Qwen2.5-7B-Instruct --outfile qwen.gguf
 ./llama-cli -m qwen-q4km.gguf -p "Hello" -n 200
 ```
 
-`Ollama` wraps this; `pip install ollama` then `ollama run qwen2.5:7b-instruct-q4_K_M`. Most consumer-LLM apps (LM Studio, Jan, etc.) use this pipeline.
+`Ollama` wraps this; `pip install ollama` then `ollama run qwen3:8b`. Most consumer-LLM apps (LM Studio, Jan, etc.) use this pipeline.
 
 ---
 
 ## 9. FP8 inference (H100 and beyond)
 
 ```bash
-vllm serve meta-llama/Llama-3.1-70B-Instruct-FP8 --quantization fp8
+vllm serve Qwen/Qwen3.6-27B-FP8 --quantization fp8
 ```
 
 If your model wasn't published in FP8, you can quantize it on-the-fly:
 
 ```bash
-vllm serve meta-llama/Llama-3.1-70B-Instruct \
+vllm serve Qwen/Qwen3.6-27B \
   --quantization fp8 \
   --kv-cache-dtype fp8
 ```
@@ -261,7 +264,7 @@ from peft import LoraConfig, get_peft_model
 bnb = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type='nf4',
                          bnb_4bit_compute_dtype=torch.bfloat16,
                          bnb_4bit_use_double_quant=True)
-model = AutoModelForCausalLM.from_pretrained('Qwen/Qwen2.5-7B', quantization_config=bnb)
+model = AutoModelForCausalLM.from_pretrained('Qwen/Qwen3-8B', quantization_config=bnb)
 
 lora = LoraConfig(r=16, lora_alpha=32, target_modules=['q_proj','k_proj','v_proj','o_proj'],
                   lora_dropout=0.05, bias='none', task_type='CAUSAL_LM')
@@ -276,28 +279,31 @@ QLoRA's 2025-2026 successors:
 
 ---
 
-## 13. End-to-end example: ship a Qwen2.5-7B AWQ on a single GPU
+## 13. End-to-end example: ship a Qwen3-8B AWQ on a single GPU
 
 ```bash
-pip install autoawq vllm
+pip install llmcompressor vllm
 
 # Quantize
 python -c "
-from awq import AutoAWQForCausalLM
-from transformers import AutoTokenizer
-m = AutoAWQForCausalLM.from_pretrained('Qwen/Qwen2.5-7B-Instruct')
-t = AutoTokenizer.from_pretrained('Qwen/Qwen2.5-7B-Instruct')
-m.quantize(t, quant_config={'zero_point': True, 'q_group_size': 128, 'w_bit': 4, 'version': 'GEMM'})
-m.save_quantized('./qwen2.5-7b-awq'); t.save_pretrained('./qwen2.5-7b-awq')
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from llmcompressor import oneshot
+from llmcompressor.modifiers.quantization import QuantizationModifier
+from llmcompressor.modifiers.transform.awq import AWQModifier
+m = AutoModelForCausalLM.from_pretrained('Qwen/Qwen3-8B')
+t = AutoTokenizer.from_pretrained('Qwen/Qwen3-8B')
+recipe = [AWQModifier(duo_scaling='both'), QuantizationModifier(targets=['Linear'], scheme='W4A16_ASYM', ignore=['lm_head'])]
+oneshot(model=m, dataset='perfectblend', splits='train[:512]', recipe=recipe, max_seq_length=512, num_calibration_samples=256)
+m.save_pretrained('./qwen3-8b-awq', save_compressed=True); t.save_pretrained('./qwen3-8b-awq')
 "
 
 # Serve
-vllm serve ./qwen2.5-7b-awq --quantization awq_marlin --max-model-len 32768
+vllm serve ./qwen3-8b-awq --max-model-len 32768
 
 # Use
 curl http://localhost:8000/v1/chat/completions \
   -H 'Content-Type: application/json' \
-  -d '{"model":"./qwen2.5-7b-awq","messages":[{"role":"user","content":"hi"}]}'
+  -d '{"model":"./qwen3-8b-awq","messages":[{"role":"user","content":"hi"}]}'
 ```
 
 Memory: ~5 GB for weights + KV cache. Throughput: ~8000 tokens/sec on an H100. Quality: indistinguishable from fp16 for chat.

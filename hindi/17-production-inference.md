@@ -128,7 +128,7 @@ KV cache long context पर *the* memory hog है।
 - **`--kv-cache-dtype fp8`** — 2× memory cut, free।
 - **`--kv-cache-dtype fp8_e4m3` / `fp8_e5m2`** — vLLM fp8 KV variants; `e4m3` more accurate, `e5m2` more range।
 - **PagedAttention** — automatic; vLLM cache को 16 tokens के pages में split करता है waste-free packing के लिए। Memory utilization ~60% से ~96% तक जाती है।
-- **CPU/SSD KV offload** (vLLM 0.7+, SGLang) — cache के inactive part को CPU RAM या NVMe पर evict करो। 1M-token serving unlock करता है।
+- **CPU/SSD KV offload** (vLLM, SGLang) — cache के inactive part को CPU RAM या NVMe पर evict करो। 1M-token serving unlock करता है।
 - **KV cache compression** (`H2O`, `SnapKV`, `KIVI`) — low-importance tokens drop करो। Research-grade; quality varies।
 
 ### Lever 3 — Prefix Caching
@@ -235,7 +235,7 @@ tokens_per_sec_per_user  ≤  HBM_bandwidth (bytes/s)  /  model_size (bytes)
 | B200 (2024-2025) | 192 GB | HBM3e | 8.0 TB/s | ~2250 | ~4500 |
 | MI300X (AMD, 2024) | 192 GB | HBM3 | 5.3 TB/s | ~1300 | ~2600 |
 | GB300 / B300 (2025-2026) | 288 GB | HBM3e | 8.0 TB/s | similar | similar |
-| Rubin (Nvidia, late 2026) | 288 GB | **HBM4** | 13+ TB/s expected | — | — |
+| Rubin (Nvidia, 2026-2027) | 288 GB | **HBM4** | 13+ TB/s expected | — | — |
 | Rubin Ultra (2027) | 1 TB+ | **HBM4** | 20+ TB/s expected | — | — |
 
 देखो H100 → H200 के बीच क्या jump हुआ: FLOPs nearly identical हैं, लेकिन bandwidth 43% ऊपर गई। **Inference के लिए, H200 H100 से per user roughly 40% faster है — entirely HBM3e की वजह से।** ये एक real-world result है जिसे आप किसी भी vLLM benchmark पर verify कर सकते हो। Chip smarter नहीं हुआ; pipe fatter हुआ।
@@ -304,7 +304,7 @@ Catch: per-user TPOT bigger batch के साथ actually worse होता �
 2. **Solo-user latency** (small batch) के लिए: आप जो highest-bandwidth GPU afford कर सकते हो उस पर run करो। H200/B200 2026 sweet spots हैं।
 3. **Batched throughput** के लिए: lots of medium-bandwidth GPUs price/perf के depending fewer high-bandwidth वालों को beat कर सकते हैं।
 4. **Quantization एक bandwidth multiplier है।** fp16 → fp8 जाना bytes-per-weight आधा करता है, same physical GPU के लिए effective HBM bandwidth double करता है। fp8 → int4 इसे फिर से double करता है। Quantization सिर्फ़ memory size के बारे में नहीं है; ये है कि tokens कितनी fast stream out होते हैं।
-5. **HBM4 wave को watch करो।** Rubin-class GPUs late 2026 / early 2027 में land होते हैं ~2× H200 bandwidth के साथ। Refresh cycles इसके आसपास plan करो; inference workloads पर ये एक step change है, incremental bump नहीं।
+5. **HBM4 wave को watch करो।** Rubin-class GPUs ~2× H200 bandwidth लाते हैं। Refresh cycles इसके आसपास plan करो; inference workloads पर ये एक step change है, incremental bump नहीं।
 6. **अपने users को tokens/sec बताओ, TFLOPS नहीं।** दो providers के बीच decide करते समय, उनके लिए सिर्फ़ वो number matter करता है कि उनके tokens कितनी fast आते हैं।
 
 2026 में inference engineers के लिए एक working slogan: **"compute rented है, bandwidth destiny है।"**
@@ -544,7 +544,7 @@ Cost levers, ranked:
 
 | Provider | Cached-read discount | Cache-write premium | Default TTL |
 |----------|---------------------|---------------------|-------------|
-| Anthropic Claude | **−90%** (input price का 10%) | First write पर +25% | 5 min (1 hr तक extendable) |
+| Anthropic Claude | **−90% to −95%** (input price का 5-10%) | First write पर +25% | 5 min (1 hr तक extendable) |
 | OpenAI | **−50%** (cached input half-price) | none | ~5-10 min sliding |
 | Google Gemini | **−75% to −80%** (context caching) | small storage fee | 1 hr default, configurable |
 | DeepSeek | **−90%** | none | 24 hr (KV-cache on disk) |
@@ -580,7 +580,7 @@ Anthropic का API आपको cache breakpoints mark करना require �
 
 ```python
 client.messages.create(
-    model="claude-opus-4-7",
+    model="claude-opus-5-5",
     system=[
         {"type": "text",
          "text": stable_system_prompt + tools_schema + few_shot_examples,

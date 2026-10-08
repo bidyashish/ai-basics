@@ -1,6 +1,6 @@
 # 22 · Multimodal Models — Vision, Audio, and Beyond
 
-> **TL;DR** A multimodal LLM (MLLM / VLM) is a text LLM with **encoder modules** for images, audio, or video that produce **soft tokens** (continuous embeddings) injected into the same residual stream. Architecturally: **vision encoder (ViT or SigLIP) → projector → LLM**. The 2026 frontier (Gemma 4, Qwen 3.6-VL, Llama 4, GPT-5, Claude Opus 4.7, Gemini 2.5) all share this pattern with native multi-resolution and (for some) audio. This chapter shows how the architecture works, how to use VLMs in practice, how to fine-tune one with QLoRA, and what eval benchmarks actually mean. Code stays English; the math is small.
+> **TL;DR** A multimodal LLM (MLLM / VLM) is a text LLM with **encoder modules** for images, audio, or video that produce **soft tokens** (continuous embeddings) injected into the same residual stream. Architecturally: **vision encoder (ViT or SigLIP) → projector → LLM**. The 2026 frontier (Gemma 4, Qwen 3.6-VL, Llama 4, GPT-5, Claude Opus 5.5, Gemini 2.5) all share this pattern with native multi-resolution and (for some) audio. This chapter shows how the architecture works, how to use VLMs in practice, how to fine-tune one with QLoRA, and what eval benchmarks actually mean. Code stays English; the math is small.
 
 ---
 
@@ -91,7 +91,7 @@ Headline models, their architectural choices, and rough capability:
 | **Qwen 3.6-27B** | Qwen-VL-style 2D RoPE, dynamic tiles | MLP | Qwen 3.6 hybrid | up to ~16k | best open VLM for OCR + agentic |
 | **Llama 4** | NVIDIA NV-CLIP variant | MLP | Llama 4 dense | dynamic | open frontier multimodal |
 | **GPT-5** | proprietary, multi-tile | proprietary | GPT-5 | dynamic | best general VLM |
-| **Claude Opus 4.7** | proprietary | proprietary | Claude | ~1.5k @ 1024² | strongest agentic vision |
+| **Claude Opus 5.5** | proprietary | proprietary | Claude | ~1.5k @ 1024² | strongest agentic vision |
 | **Gemini 2.5 Pro** | proprietary, very efficient | proprietary | Gemini | ~258 / tile | best long-video, 1M+ context |
 | **Pixtral 12B** | Mistral's, native AR | MLP | Mistral Nemo | dynamic | strong open mid-size |
 | **InternVL3** | InternViT-6B | pixel-shuffle MLP | various LLMs | dynamic | top open document understanding |
@@ -122,7 +122,7 @@ client = anthropic.Anthropic()
 img_b64 = base64.b64encode(open("chart.png","rb").read()).decode()
 
 resp = client.messages.create(
-    model="claude-sonnet-4-6",
+    model="claude-sonnet-5-5",
     max_tokens=1024,
     messages=[{"role":"user","content":[
         {"type":"image","source":{"type":"base64","media_type":"image/png",
@@ -136,11 +136,11 @@ print(resp.content[0].text)
 OpenAI, Gemini, and Mistral use the same `messages` shape with slightly different field names for image attachments. Self-hosted via `transformers`:
 
 ```python
-from transformers import AutoProcessor, AutoModelForVision2Seq
+from transformers import AutoProcessor, AutoModelForImageTextToText
 import torch
 
-m = AutoModelForVision2Seq.from_pretrained("google/gemma-4-31b-it",
-        torch_dtype=torch.bfloat16, device_map="auto")
+m = AutoModelForImageTextToText.from_pretrained("google/gemma-4-31b-it",
+        dtype=torch.bfloat16, device_map="auto")
 proc = AutoProcessor.from_pretrained("google/gemma-4-31b-it")
 
 inputs = proc.apply_chat_template(
@@ -220,7 +220,7 @@ Vision encoder fine-tuning is rare and usually hurts unless your domain (medical
 ### QLoRA recipe for VLM (sketch)
 
 ```python
-from transformers import AutoModelForVision2Seq, BitsAndBytesConfig, AutoProcessor
+from transformers import AutoModelForImageTextToText, BitsAndBytesConfig, AutoProcessor
 from peft import LoraConfig
 from trl import SFTTrainer, SFTConfig
 import torch
@@ -228,7 +228,7 @@ import torch
 bnb = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type="nf4",
                          bnb_4bit_compute_dtype=torch.bfloat16,
                          bnb_4bit_use_double_quant=True)
-m = AutoModelForVision2Seq.from_pretrained(
+m = AutoModelForImageTextToText.from_pretrained(
     "google/gemma-4-e4b-it",
     quantization_config=bnb, device_map="auto",
     attn_implementation="flash_attention_2",
@@ -347,7 +347,7 @@ Capability-aside, evaluate hallucination explicitly: VLMs love to invent objects
 - **Always log image-token usage**; an image is 5-15× a text turn.
 - **Resize / crop before sending**; 768² is enough for most tasks.
 - For OCR / docs: **Qwen-VL, InternVL3, Pixtral, Gemma 4 31B**.
-- For agentic vision (UI, screenshots): **Claude Opus 4.7, GPT-5, Qwen 3.6**.
+- For agentic vision (UI, screenshots): **Claude Opus 5.5, GPT-5, Qwen 3.6**.
 - For video / long context: **Gemini 2.5 Pro**.
 - For on-device multimodal: **Gemma 4 E2B/E4B**.
 - For ASR: **Whisper-v3-turbo** (open) or **Deepgram** (API).
@@ -363,7 +363,7 @@ Capability-aside, evaluate hallucination explicitly: VLMs love to invent objects
 - **InternVL3 paper** — fine-grained multi-resolution design.
 - **Molmo paper** (AI2 2024) — open multimodal recipe with grounding.
 - **Llama 3.2-Vision blog and code** — accessible reference open VLM.
-- **`transformers` `AutoModelForVision2Seq` docs** — for quick experimentation.
+- **`transformers` `AutoModelForImageTextToText` docs** — for quick experimentation.
 - **vLLM multimodal serving docs** — production deployment.
 - **MMMU and POPE leaderboards** — track frontier capabilities and hallucination tradeoffs.
 

@@ -104,7 +104,7 @@ class GQAttention(nn.Module):
         return self.o_proj(out), new_kv
 ```
 
-`enable_gqa=True` (PyTorch 2.5+) Flash Attention को खुद `H_kv` keys को `H_q` queries पर kernel के अंदर broadcast करता है, no `repeat_interleave` needed। Memory और compute बचाता है।
+`enable_gqa=True` Flash Attention को खुद `H_kv` keys को `H_q` queries पर kernel के अंदर broadcast करता है, no `repeat_interleave` needed। Memory और compute बचाता है।
 
 ---
 

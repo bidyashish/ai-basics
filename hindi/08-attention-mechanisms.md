@@ -139,7 +139,7 @@ with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
     out = F.scaled_dot_product_attention(q, k, v, is_causal=True)
 ```
 
-More flexibility (custom masks, sliding windows, sparse patterns) के लिए, **`torch.nn.attention.flex_attention`** (PyTorch 2.5+) use करो — एक JIT-compiled API जो आपके custom score-modifier को Flash-style kernel में compile करता है:
+More flexibility (custom masks, sliding windows, sparse patterns) के लिए, **`torch.nn.attention.flex_attention`** use करो — एक JIT-compiled API जो आपके custom score-modifier को Flash-style kernel में compile करता है:
 
 ```python
 from torch.nn.attention.flex_attention import flex_attention, create_block_mask
@@ -271,6 +271,6 @@ Inference के लिए, KV cache (chapter 9) often memory को orders of m
 - Dao et al. 2022 / 2023 / 2024 — Flash Attention, FA2, FA3।
 - Karpathy का `nanoGPT` — `model.py` में cleanest hand-rolled attention है जो आप देख सकते हो।
 - DeepSeek-V2 paper — MLA का readable derivation।
-- PyTorch 2.5+ docs on `torch.nn.attention.flex_attention` — custom attention का future।
+- PyTorch docs on `torch.nn.attention.flex_attention` — custom attention का future।
 
 Next: **[09-kv-cache-mqa-gqa.md](./09-kv-cache-mqa-gqa.md)** — सबसे ज़्यादा matter करने वाली inference optimizations।

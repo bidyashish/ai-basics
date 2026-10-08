@@ -139,7 +139,7 @@ with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
     out = F.scaled_dot_product_attention(q, k, v, is_causal=True)
 ```
 
-For more flexibility (custom masks, sliding windows, sparse patterns), use **`torch.nn.attention.flex_attention`** (PyTorch 2.5+) — a JIT-compiled API that compiles your custom score-modifier into a Flash-style kernel:
+For more flexibility (custom masks, sliding windows, sparse patterns), use **`torch.nn.attention.flex_attention`** — a JIT-compiled API that compiles your custom score-modifier into a Flash-style kernel:
 
 ```python
 from torch.nn.attention.flex_attention import flex_attention, create_block_mask
@@ -271,6 +271,6 @@ For inference, the KV cache (chapter 9) often dominates memory by orders of magn
 - Dao et al. 2022 / 2023 / 2024 — Flash Attention, FA2, FA3.
 - Karpathy's `nanoGPT` — `model.py` has the cleanest hand-rolled attention you'll find.
 - DeepSeek-V2 paper — readable derivation of MLA.
-- PyTorch 2.5+ docs on `torch.nn.attention.flex_attention` — the future of custom attention.
+- PyTorch docs on `torch.nn.attention.flex_attention` — the future of custom attention.
 
 Next: **[09-kv-cache-mqa-gqa.md](./09-kv-cache-mqa-gqa.md)** — the inference optimizations that matter most.

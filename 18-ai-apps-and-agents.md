@@ -182,7 +182,7 @@ Each pattern below is shown with the smallest sensible PyTorch/Python implementa
 import anthropic
 client = anthropic.Anthropic()
 resp = client.messages.create(
-    model="claude-sonnet-4-6",
+    model="claude-sonnet-5-5",
     max_tokens=512,
     messages=[{"role": "user", "content": "Summarize: " + text}],
 )
@@ -198,7 +198,7 @@ history = []
 def chat_turn(user_msg: str):
     history.append({"role": "user", "content": user_msg})
     with client.messages.stream(
-        model="claude-sonnet-4-6",
+        model="claude-sonnet-5-5",
         max_tokens=2048,
         system="You are a helpful assistant.",
         messages=history,
@@ -223,7 +223,7 @@ tools = [
 ]
 
 resp = client.messages.create(
-    model="claude-sonnet-4-6",
+    model="claude-sonnet-5-5",
     max_tokens=1024,
     tools=tools,
     messages=[{"role": "user", "content": "Weather in Tokyo?"}],
@@ -245,7 +245,7 @@ You are an agent. For each step:
 - When you have enough information, give the final answer.
 ```
 
-Modern reasoning models (Claude Opus 4.7 with thinking, GPT-5 with reasoning, DeepSeek-R1) effectively bake ReAct into the model — you just give them tools and they reason internally before acting.
+Modern reasoning models (Claude Opus 5.5 with thinking, GPT-5 with reasoning, DeepSeek-R1) effectively bake ReAct into the model — you just give them tools and they reason internally before acting.
 
 ### Pattern 5 — Plan-then-execute
 
@@ -294,8 +294,8 @@ schema = {
     "required": ["title", "tags", "score"],
 }
 resp = client.messages.create(
-    model="claude-sonnet-4-6",
-    response_format={"type": "json_schema", "schema": schema},
+    model="claude-sonnet-5-5",
+    output_config={"format": {"type": "json_schema", "schema": schema}},
     messages=[...],
 )
 data = json.loads(resp.content[0].text)
@@ -337,7 +337,7 @@ Each stage adds latency. Target end-to-end latency for "feels conversational" is
 
 ```python
 client.messages.create(
-    model="claude-sonnet-4-6",
+    model="claude-sonnet-5-5",
     messages=[{"role": "user", "content": [
         {"type": "image", "source": {"type": "base64", "media_type": "image/png",
                                        "data": b64}},
@@ -415,13 +415,13 @@ Don't reach for a framework if your problem is simple. **Two-thirds of "agent fr
 
 ## 7. API providers — the 2026 landscape
 
-The big six API providers, plus the major aggregators. **Prices are list rates; volume discounts and yearly commitments are usually 20-40% lower.** Numbers are illustrative as of mid-2026 and shift every few months.
+The big six API providers, plus the major aggregators. **Prices are list rates; volume discounts and yearly commitments are usually 20-40% lower.** Anthropic numbers are list prices as of October 2026; the rest are approximate and shift every few months.
 
 ### Frontier-tier APIs
 
 | Provider | Flagship | Mid-tier | Small-tier | Notes |
 |----------|----------|----------|------------|-------|
-| **Anthropic** | Claude Opus (~$15 in / $75 out / $0.30 cached) | Claude Sonnet (~$3 / $15 / $0.30) | Claude Haiku (~$0.25 / $1.25 / $0.03) | Strongest agentic / coding; best caching discount; MCP-native |
+| **Anthropic** | Claude Fable 5.1 ($10 in / $50 out / $0.25 cached), Claude Opus 5.5 ($4 / $20 / $0.20) | Claude Sonnet 5.5 ($2 / $10 / $0.10) | Claude Haiku 5.5 ($0.10 / $0.50 / $0.01) | Strongest agentic / coding; best caching discount; MCP-native |
 | **OpenAI** | GPT-flagship (~$5 / $15) | GPT-mid (~$0.50 / $2) | GPT-mini (~$0.10 / $0.40) | Best ecosystem, Realtime API, Agents SDK, structured outputs |
 | **Google** | Gemini Pro (~$1.25 / $5) | Gemini Flash (~$0.075 / $0.30) | Gemini Flash-Lite | Cheapest mid-tier, 1M+ context, strong multimodal |
 | **xAI** | Grok flagship (~$3 / $15) | Grok mid (~$0.30 / $1.50) | — | Strong on real-time/social context |
@@ -445,7 +445,7 @@ When the user **feels** speed (voice, agents, IDE), Groq or Cerebras can be the 
 | **Together AI** | Llama, Qwen, Mixtral, DeepSeek, custom | $0.20-2/M | broad coverage, BYO fine-tunes |
 | **Fireworks** | Llama, Qwen, custom | $0.20-3/M | LoRA serving, function calling |
 | **Replicate** | open models | per-second GPU billing | best for cold-batch jobs |
-| **OctoAI / RunPod / Vast** | self-managed | hourly GPU | for serious workloads |
+| **RunPod / Vast** | self-managed | hourly GPU | for serious workloads |
 
 ### Aggregators
 
@@ -654,8 +654,8 @@ class Stats:
             + usage.output_tokens * model_rates["output"] / 1e6
         )
 
-# Sonnet 4.6 rates (illustrative)
-RATES = {"input": 3.0, "cached": 0.30, "output": 15.0}
+# Sonnet 5.5 list rates, October 2026 ($/M tokens)
+RATES = {"input": 2.0, "cached": 0.10, "output": 10.0}
 
 # ─── 6. Agent loop ──────────────────────────────────────────────────────────────
 
@@ -672,7 +672,7 @@ def run(task: str, max_iter: int = 30, max_total_tokens: int = 200_000):
     stats = Stats()
     for it in range(max_iter):
         resp = client.messages.create(
-            model="claude-sonnet-4-6",
+            model="claude-sonnet-5-5",
             max_tokens=4096,
             system=[{"type":"text","text": SYSTEM,
                      "cache_control":{"type":"ephemeral"}}],

@@ -142,7 +142,6 @@ Translation: 31B Dense release पर roughly **strongest open multimodal model 
 |---------|-------------|--------------------|------------|---------|
 | **Qwen 3.6-27B** (Dense) | 27B | 27B | text + vision | 262k native, ~1M with YaRN |
 | **Qwen 3.6-35B-A3B** (MoE) | 35B | ~3B | text + vision | 262k native, ~1M with YaRN |
-| Qwen 3.6 Max Preview | (closed) | (closed) | text + vision | very long |
 
 License: **Apache 2.0**। Same situation Gemma 4 जैसी — open release genuinely permissive है।
 
@@ -223,7 +222,7 @@ Reasoning models often final answer से पहले `<think>...</think>` cha
 - **3:1 DeltaNet:Attention** (long T पर memory और compute friendly),
 - **YaRN scaling** config में built,
 
-inference पर **~1M tokens** तक extends एक small fine-tuning anneal के साथ, और Qwen team एक `Qwen3.6-1M` variant ship करती है जिसने वो anneal आपके लिए कर दिया है।
+inference पर YaRN और एक short long-context anneal के साथ **~1M tokens** तक extend होता है। सिर्फ़ 27B और 35B-A3B checkpoints (bf16 और FP8) published हैं; कोई अलग 1M checkpoint नहीं है।
 
 ### Headline Benchmarks
 
@@ -241,8 +240,8 @@ Story: एक **27B dense** Apache-licensed open model, single 80 GB GPU पर 
 
 ### Implementation Notes
 
-- HuggingFace `transformers` ≥ 4.55 में custom Gated DeltaNet kernels के साथ Qwen 3.6 model class है।
-- vLLM ≥ 0.7.x natively hybrid stack support करता है (vLLM team ने Gated DeltaNet के लिए Triton kernel co-designed किया)।
+- Current HuggingFace `transformers` (5.x) में custom Gated DeltaNet kernels के साथ Qwen 3.6 model class है।
+- Current vLLM (0.3x) natively hybrid stack support करता है (vLLM team ने Gated DeltaNet के लिए Triton kernel co-designed किया)।
 - DeltaNet kernel standard attention से लिखने में harder है; अगर आप अपना खुद का roll कर रहे हो, reference implementations के लिए `flash-linear-attention` library use करो।
 - MoE-A3B के लिए, vLLM में `--enable-expert-parallel` set करो ताकि 256 experts multiple GPUs के across spread हों; otherwise 1 GPU पर memory blow करेगा।
 
@@ -250,7 +249,6 @@ Story: एक **27B dense** Apache-licensed open model, single 80 GB GPU पर 
 
 - **27B Dense** — agentic coding, IDE assistants, anywhere quality > throughput। SWE-bench पर current open SOTA।
 - **35B-A3B MoE** — high-throughput chat, RAG, agents जिन्हें speed चाहिए; 27B के साथ same architecture और tokenizer लेकिन 3B model का inference compute।
-- **1M variant** — repository-scale code analysis, long document reasoning।
 
 ---
 
@@ -300,11 +298,11 @@ Cheap high-throughput chat चाहिए?
 50B के नीचे best reasoning / math चाहिए?
    → Gemma 4 31B Dense  (AIME 2026: 89.2)
 
-1M-context analyst चाहिए?
-   → Qwen 3.6-1M
+Very long context (256k-1M) चाहिए?
+   → Qwen 3.6-27B YaRN scaling के साथ
 
 1 GPU पर cheaply fine-tune करना चाहते हो?
-   → Gemma 4 E4B या Qwen 3.6-7B (अगर release हो) QLoRA के साथ
+   → Gemma 4 E4B या Qwen3-4B QLoRA के साथ
 ```
 
 ---
@@ -327,7 +325,5 @@ Cheap high-throughput chat चाहिए?
 - [Qwen3.6-35B-A3B — HuggingFace](https://huggingface.co/Qwen/Qwen3.6-35B-A3B)
 - [Qwen3.6-27B — HuggingFace](https://huggingface.co/Qwen/Qwen3.6-27B)
 - [Qwen3.6-27B blog — qwen.ai](https://qwen.ai/blog?id=qwen3.6-27b)
-- [Alibaba Qwen Team Releases Qwen3.6-27B — MarkTechPost (2026-04-22)](https://www.marktechpost.com/2026/04/22/alibaba-qwen-team-releases-qwen3-6-27b-a-dense-open-weight-model-outperforming-397b-moe-on-agentic-coding-benchmarks/)
-- [Qwen 3.6 Complete Guide — InsiderLLM](https://insiderllm.com/guides/qwen-3-6-local-ai-guide/)
 
 Next: **[17-production-inference.md](./17-production-inference.md)** — इन में से किसी को 10,000 customers तक actually कैसे serve करें।

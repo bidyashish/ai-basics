@@ -103,7 +103,7 @@ config = SFTConfig(
     warmup_ratio=0.03,
     bf16=True,
     packing=True,                      # short examples pack करो
-    max_seq_length=4096,
+    max_length=4096,
     save_strategy="epoch",
     logging_steps=10,
     optim="adamw_torch_fused",
@@ -198,7 +198,7 @@ trainer = SFTTrainer(
     args=SFTConfig(...),
     train_dataset=ds,
     peft_config=lora_cfg,        # peft_config triggers QLoRA जब model 4-bit है
-    tokenizer=tok,
+    processing_class=tok,
 )
 trainer.train()
 trainer.save_model("./qwen3-4b-mydomain-qlora")
@@ -278,7 +278,7 @@ trainer = DPOTrainer(
     ref_model=None,                    # SFT model को reference के रूप में automatically use करता है
     args=cfg,
     train_dataset=preference_ds,
-    tokenizer=tok,
+    processing_class=tok,
     peft_config=lora_cfg,              # LoRA के साथ DPO default है
 )
 trainer.train()
@@ -348,7 +348,7 @@ trainer = GRPOTrainer(
     reward_funcs=[reward_fn],
     args=cfg,
     train_dataset=math_ds,
-    tokenizer=tok,
+    processing_class=tok,
 )
 trainer.train()
 ```
@@ -381,7 +381,7 @@ DeepSeek-V3 / R1 / R1-Zero technical reports RLVR design पर canonical readin
 teacher = anthropic.Anthropic()
 distill_data = []
 for prompt in prompts:
-    out = teacher.messages.create(model="claude-opus-4-7",
+    out = teacher.messages.create(model="claude-opus-5-5",
                                    max_tokens=2048,
                                    messages=[{"role":"user","content":prompt}])
     distill_data.append({"prompt": prompt, "completion": out.content[0].text})
@@ -484,7 +484,7 @@ args = SFTConfig(
     learning_rate=2e-5,
     lr_scheduler_type="cosine",
     warmup_ratio=0.03,
-    bf16=True, packing=True, max_seq_length=4096,
+    bf16=True, packing=True, max_length=4096,
     optim="adamw_torch_fused",
     gradient_checkpointing=True,
     save_strategy="epoch",
@@ -494,7 +494,7 @@ args = SFTConfig(
 
 trainer = SFTTrainer(
     model=model, args=args,
-    train_dataset=ds, tokenizer=tok,
+    train_dataset=ds, processing_class=tok,
     peft_config=peft_cfg,
 )
 trainer.train()
@@ -502,7 +502,7 @@ trainer.save_model(OUT)         # सिर्फ़ adapter
 
 # ─── 6. Optional: serving के लिए merge ─────────────────────────────────────
 # from peft import AutoPeftModelForCausalLM
-# m = AutoPeftModelForCausalLM.from_pretrained(OUT, torch_dtype=torch.bfloat16)
+# m = AutoPeftModelForCausalLM.from_pretrained(OUT, dtype=torch.bfloat16)
 # m.merge_and_unload().save_pretrained(OUT + "-merged")
 ```
 

@@ -76,7 +76,7 @@ class RMSNorm(nn.Module):
         return (self.weight * h).to(x.dtype)
 ```
 
-PyTorch 2.4+ has `nn.RMSNorm` built in. Use it.
+PyTorch has `nn.RMSNorm` built in. Use it.
 
 A subtle implementation detail: **always compute the variance in fp32** even if your activations are bf16/fp16. You'll get NaN otherwise on aggressive training runs.
 
