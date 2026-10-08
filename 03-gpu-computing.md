@@ -6,12 +6,12 @@
 
 A CPU has a small number of strong cores (8-128) optimized for branchy, sequential code. A GPU has thousands of weak cores designed to run the same instruction across many data elements at once — **SIMT** (Single Instruction, Multiple Threads). For "do this multiply-add a billion times," the GPU eats the CPU for breakfast. For "parse this JSON and decide what to do," the CPU wins.
 
-A modern training-class GPU (H100, A100, RTX 4090) has:
+A modern training-class GPU (B200, H100, RTX 5090) has:
 
 - **Compute units** ("Streaming Multiprocessors", or SMs) — 100+ of them.
 - **CUDA cores** inside each SM — for general fp32/fp64 math.
 - **Tensor Cores** inside each SM — special hardware for **matrix multiply-accumulate** at low precision (fp16, bf16, fp8, int8). Vastly faster than CUDA cores for matmul.
-- **HBM** (high-bandwidth memory) — 24-80 GB on modern GPUs.
+- **HBM** (high-bandwidth memory) — 80-192 GB on datacenter GPUs, 24-32 GB on consumer cards.
 - **L2 cache** — tens of MB shared across SMs.
 - **Shared memory / L1** — small, very fast, per-SM scratchpad.
 - **Registers** — fastest, per-thread.
@@ -28,15 +28,18 @@ When you write `a @ b` in PyTorch, under the hood:
 
 You don't need to memorize the whole spec sheet, but knowing the order of magnitude helps you reason.
 
-| Metric | A100 (40 GB) | H100 (80 GB) | RTX 4090 |
-|--------|--------------|--------------|----------|
-| FP16/BF16 TFLOPS (Tensor Cores) | 312 | ~1000 | 165 |
-| FP8 TFLOPS | n/a | ~2000 | n/a |
-| HBM bandwidth | 1.6 TB/s | 3.4 TB/s | 1.0 TB/s (GDDR6X) |
-| Memory | 40-80 GB | 80 GB | 24 GB |
+| Metric | H100 (80 GB) | B200 (192 GB) | RTX 5090 |
+|--------|--------------|---------------|----------|
+| FP16/BF16 TFLOPS (Tensor Cores, dense) | ~1000 | ~2250 | ~210 |
+| FP8 TFLOPS (dense) | ~2000 | ~4500 | ~420 |
+| FP4 TFLOPS (dense) | n/a | ~9000 | ~840 |
+| HBM bandwidth | 3.4 TB/s | 8 TB/s | 1.8 TB/s (GDDR7) |
+| Memory | 80 GB | 192 GB | 32 GB |
+
+RTX 5090 figures are with fp32 accumulate; the marketing "AI TOPS" numbers count sparsity and fp16 accumulate.
 
 The takeaway:
-- One H100 does roughly **a quadrillion (10¹⁵) ops per second** in bf16.
+- One H100 does roughly **a quadrillion (10¹⁵) ops per second** in bf16; a B200 does twice that, and fp4 doubles it again.
 - Memory is fast but compute is faster. Reading every weight from HBM into compute units is often the bottleneck.
 
 ---
@@ -85,7 +88,8 @@ Tensor Cores run faster at lower precision. Memory bandwidth is also reduced (4 
 | tf32 | 19 | fp32 range | A100+ default for fp32 matmul; slightly less precise |
 | fp16 | 16 | small (±65k) | Inference, training with loss scaling |
 | bf16 | 16 | fp32 range | **Default for modern training** |
-| fp8 | 8 | small | Cutting-edge training (H100), inference |
+| fp8 | 8 | small | Training at scale (DeepSeek-V3 recipe); inference default on H100/B200 |
+| fp4 / NVFP4 | 4 | tiny (block-scaled) | Blackwell inference; experimental training |
 | int8 | 8 | -128 to 127 | Quantized inference |
 | int4 | 4 | -8 to 7 | Heavy quantized inference (chapter 12) |
 
@@ -107,7 +111,7 @@ You usually don't write CUDA by hand for deep learning. But the vocabulary helps
 
 When `a @ b` runs, the matmul kernel might be launched with grid `(M/128, N/128)` and block `(256,)` — meaning each block computes a 128×128 tile of the result, with 256 threads cooperating.
 
-If you ever want to write your own kernels, today's pragmatic path is **Triton** (Python-like, JIT-compiled, much friendlier than raw CUDA). Flash Attention v2 was originally written in Triton.
+If you ever want to write your own kernels, today's pragmatic path is **Triton** (Python-like, JIT-compiled, much friendlier than raw CUDA). FlashAttention ships an official Triton port, and most custom kernels inside vLLM and SGLang are Triton.
 
 ---
 
@@ -220,7 +224,7 @@ We unpack each of these in later chapters.
 | OOM | Activations or KV cache | Activation checkpointing, smaller batch, FSDP |
 | Slow first iteration | Kernel autotuning, cuDNN benchmarking | Expected, ignore (or set `torch.backends.cudnn.benchmark=True` once) |
 | `nan` after a few steps | fp16 overflow | Use bf16, or add loss scaling |
-| Single GPU saturated, more available | No data parallelism | Use DDP/FSDP |
+| Single GPU saturated, more available | No data parallelism | Use FSDP2 |
 
 ---
 

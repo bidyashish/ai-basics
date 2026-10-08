@@ -132,7 +132,7 @@ Notes:
 
 ## 6. Optimizer Choices
 
-### AdamW (~5 साल के लिए default)
+### AdamW (safe default)
 
 ```python
 opt = torch.optim.AdamW(
@@ -147,7 +147,7 @@ opt = torch.optim.AdamW(
 
 `weight_decay = 0.1` LLM standard है (note: weight decay embeddings, biases, या norm weights पर apply नहीं होना चाहिए — `param_groups` के via apply करो)।
 
-### Muon (2024-2026 newcomer, especially matmul layers के लिए)
+### Muon (matmul layers के लिए 2026 choice)
 
 Muon (Jordan et al. 2024) एक momentum optimizer है जो, Adam-style per-parameter scaling के बजाय, हर weight matrix के update पर एक **orthogonalization** apply करता है। Empirically:
 
@@ -166,10 +166,6 @@ adamw = torch.optim.AdamW(adamw_params, lr=3e-4, betas=(0.9, 0.95), weight_decay
 ```
 
 Research run पर experiment करने worth है। Free version (GitHub पर `KellerJordan/Muon`) solid है।
-
-### Soap, Lion, Sophia, etc.
-
-Various 2nd-order-ish optimizers exist करते हैं। **Soap** (2024) recent papers में promise दिखाता है। 2026 तक mostly research-only; AdamW + Muon production cover करते हैं।
 
 ### 8-bit में Optimizer State
 
@@ -192,7 +188,7 @@ cosine = CosineAnnealingLR(opt, T_max=TOTAL - WARMUP, eta_min=3e-5)
 sched = SequentialLR(opt, [warmup, cosine], milestones=[WARMUP])
 ```
 
-**Anneal phase** (Llama-3 / SmolLM-2 style):
+**Anneal phase** (SmolLM3 / OLMo 3 style):
 - Pretraining tokens का last 5-10%।
 - Cosine को linear decay से replace करो `eta_min ≈ 0` तक।
 - एक high-quality data mix use करो (curated educational, math, code)।
@@ -206,25 +202,17 @@ sched = SequentialLR(opt, [warmup, cosine], milestones=[WARMUP])
 
 ---
 
-## 8. Multi-GPU: DDP, FSDP, ZeRO
+## 8. Multi-GPU: FSDP2, Tensor Parallel, और friends
 
 आपको almost हमेशा multiple GPUs चाहिए। Model size से एक strategy pick करो।
 
-### DDP (DistributedDataParallel)
+### DDP (सिर्फ़ उन models के लिए जो एक GPU पर fit हों)
 
-Simple replication: हर GPU full model hold करता है, data split होता है, backward के बाद gradients all-reduced होते हैं। तब काम करता है जब full model हर GPU पर fit हो।
-
-```python
-import torch.distributed as dist
-from torch.nn.parallel import DistributedDataParallel as DDP
-dist.init_process_group(backend='nccl')
-model = MyModel().cuda(local_rank)
-model = DDP(model, device_ids=[local_rank])
-```
+Plain replication: हर GPU full model hold करता है और backward के बाद gradients all-reduced होते हैं। Toy runs के लिए अभी भी काम करता है, लेकिन FSDP2 एक shard per GPU के साथ कुछ extra cost नहीं करता और model बढ़ने पर scale करता रहता है, तो वहीं से start करो।
 
 ### FSDP2 (Fully Sharded Data Parallel, 2026 का default)
 
-Parameters, gradients, और optimizer state को GPUs के across shard करता है। ZeRO Stage 3 की तरह लेकिन PyTorch के लिए native और FSDP2 से ज़्यादा efficient।
+Parameters, gradients, और optimizer state को GPUs के across shard करता है। ZeRO Stage 3 की तरह लेकिन PyTorch के लिए native।
 
 ```python
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
@@ -235,13 +223,13 @@ for layer in model.layers:
 fully_shard(model, mp_policy=mp)
 ```
 
-**FSDP2 वो है जिससे Llama 3 / Qwen 3 / OLMo / SmolLM trained हैं।** ये अब stable और well-supported है।
+**FSDP2 PyTorch-native default है: torchtitan, OLMo-core, और TRL / Accelerate सब इस पर build करते हैं।** ये stable और well-supported है।
 
 ### Tensor Parallelism (TP)
 
 हर weight matrix को GPUs के across shard करो; हर GPU matmul का slice compute करता है, combine करने के लिए all-reduce। बहुत wide layers (FFN, attention output) के लिए used जब FSDP भी काफी न हो। Megatron-LM और `torch.distributed.tensor` ये support करते हैं।
 
-एक node पर sub-7B models के लिए: **DDP या FSDP2।** 7-70B multi-node के लिए: **FSDP2 + maybe TP for FFN।** Frontier MoE के लिए: **EP + TP + PP** (expert + tensor + pipeline parallelism)। आप latter नहीं लिखेंगे; आप Megatron, NeMo, या Colossal-AI use करोगे।
+एक node पर sub-7B models के लिए: **FSDP2।** 7-70B multi-node के लिए: **FSDP2 + maybe TP for FFN।** Frontier MoE के लिए: **EP + TP + PP** (expert + tensor + pipeline parallelism)। आप latter नहीं लिखेंगे; आप torchtitan, Megatron-LM, या NeMo use करोगे।
 
 ---
 
@@ -379,7 +367,7 @@ def make_examples(tokenizer, msgs):
     return ids, labels
 ```
 
-Datasets: Tülu 3 SFT mix, OpenHermes-2.5, Llama-Nemotron post-training, अपना khud का। **1-3 epochs** के लिए train करो **LR 2e-5 to 1e-5** (pretraining से much lower) के साथ, new data पर no weight decay, AdamW या Muon। बाकी stack same है।
+Datasets: Tülu 3 SFT mix, SmolTalk2, Llama-Nemotron post-training, अपना khud का। **1-3 epochs** के लिए train करो **LR 2e-5 to 1e-5** (pretraining से much lower) के साथ, new data पर no weight decay, AdamW या Muon। बाकी stack same है।
 
 LoRA / QLoRA SFT भी extremely common है — small, cheap, और quality full fine-tuning के close है। `peft + trl + accelerate` use करो:
 
@@ -484,7 +472,7 @@ Shipping के लिए: एक **model card** लिखो (intended use, lic
 ## 20. 2026 Cheat Sheet
 
 - **bf16 + AdamW + cosine + 1-2k warmup + WSD या anneal।**
-- multi-GPU के लिए **FSDP2**, अगर model एक पर fit हो तो **DDP**।
+- multi-GPU के लिए **FSDP2**; DDP सिर्फ़ toy runs के लिए।
 - **`torch.compile(model)`** — free 30-100% speedup।
 - Memory बचाने के लिए **Activation checkpointing**।
 - **Gradient clip 1.0**, **weight decay 0.1**, **`betas=(0.9, 0.95)`**, **`eps=1e-8`**।
@@ -500,9 +488,9 @@ Shipping के लिए: एक **model card** लिखो (intended use, lic
 
 ## और गहराई से
 
-- **`nanoGPT`** (Karpathy) — smallest readable production-grade trainer। पहले पढ़ो।
+- **`nanochat`** (Karpathy) — smallest readable full-stack trainer, 2026 edition। पहले पढ़ो।
 - **`llm.c`** (Karpathy) — pure C/CUDA training, performance के लिए educational gold standard।
-- **OLMo** (AI2) और **SmolLM-2** (HuggingFace) — fully open recipes, including data और code।
+- **OLMo 3** (AI2) और **SmolLM3** (HuggingFace) — fully open recipes, including data और code।
 - **DeepSeek-V3 technical report** — best modern frontier training writeup।
 - **Tülu 3 technical report** (AI2 2024) — canonical post-training pipeline।
 - **`torchtitan`** — PyTorch की reference distributed-training library (FSDP2 + TP + activation ckpt)।

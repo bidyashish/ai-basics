@@ -209,7 +209,6 @@ Patch          targeted SFT collection, often hand-curated
 - **vLLM** — production default।
 - **SGLang** — prefix-cache-heavy workloads के लिए best।
 - **TensorRT-LLM** — best NVIDIA latency।
-- **TGI** — HuggingFace का serving stack।
 - **`llama.cpp` / Ollama** — CPU + edge।
 - **MLX** — Apple Silicon।
 

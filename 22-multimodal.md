@@ -105,7 +105,7 @@ Audio capability (separate or integrated):
 | **GPT-5 / Realtime** | proprietary | yes | yes (speech-to-speech) |
 | **Gemini 2.5** | USM | yes | yes |
 | **Whisper-v3** | conformer encoder | (standalone ASR) | no |
-| **Qwen2.5-Omni** | Qwen-Audio | yes | yes |
+| **Qwen3-Omni** | AuT (in-house) | yes | yes |
 | **Moshi** (Kyutai) | RQ-Transformer | yes | yes (low-latency speech-to-speech) |
 
 For 2026 audio applications: **Whisper-v3 / -v3-turbo** for high-accuracy ASR, **Gemma 4 E** for on-device multimodal-with-audio, **OpenAI Realtime / Moshi / Qwen-Omni** for sub-second speech-to-speech.
@@ -302,7 +302,7 @@ For voice + video together (multimodal calls): **Gemini Live API** and **OpenAI 
 Two flavors:
 
 - **ASR (speech to text)** — usually a separate model (Whisper-v3, NVIDIA Canary, Deepgram, AssemblyAI). Pipeline: audio → text → text LLM.
-- **Native audio in** — model accepts audio directly: Gemma 4 E-tier, Qwen2.5-Omni, GPT-5 Realtime, Gemini Live, Moshi. Better for emotional cues, prosody, multi-speaker.
+- **Native audio in** — model accepts audio directly: Gemma 4 E-tier, Qwen3-Omni, GPT-5 Realtime, Gemini Live, Moshi. Better for emotional cues, prosody, multi-speaker.
 - **Native audio out** — model generates audio: GPT-5 Realtime, Moshi, Qwen-Omni, Gemini Live. Speech-to-speech latency under 800 ms.
 
 For most products in 2026: **Whisper-v3-turbo** (open) or **Deepgram / AssemblyAI** (API) for ASR + a text LLM is still the cheapest, most flexible path. Switch to native multimodal when you need real-time bidirectional speech (voice agents).
@@ -359,7 +359,7 @@ Capability-aside, evaluate hallucination explicitly: VLMs love to invent objects
 ## Going deeper
 
 - **SigLIP-2 paper** (Tschannen et al. 2025) — the canonical modern vision encoder.
-- **Qwen-VL / Qwen2-VL / Qwen2.5-VL technical reports** — most readable open VLM papers.
+- **Qwen2.5-VL / Qwen3-VL technical reports** — most readable open VLM papers.
 - **InternVL3 paper** — fine-grained multi-resolution design.
 - **Molmo paper** (AI2 2024) — open multimodal recipe with grounding.
 - **Llama 3.2-Vision blog and code** — accessible reference open VLM.

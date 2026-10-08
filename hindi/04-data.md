@@ -1,6 +1,6 @@
 # 04 · Data — Collect, Process, और Prepare
 
-> **TL;DR** 2026 में, एक strong small model का easiest path **FineWeb-Edu** या **DCLM-Baseline** से शुरू करना है (दोनों open, दोनों pre-cleaned), code (StarCoder2 / The-Stack-v2), math (FineMath), और synthetic instruction data (Cosmopedia / OpenHermes / Tülu 3) मिक्स करना है। फिर dedupe करो, quality के लिए filter करो, और tokenized binary files में shard करो जिन्हें `DataLoader` stream कर सके। **आपके tokens की quality आपके tokens की quantity को beat करती है।**
+> **TL;DR** 2026 में, एक strong small model का easiest path **FineWeb-Edu** या **DCLM-Baseline** से शुरू करना है (दोनों open, दोनों pre-cleaned), code (StarCoder2 / The-Stack-v2), math (FineMath), और synthetic instruction data (Cosmopedia / SmolTalk2 / Tülu 3) मिक्स करना है। फिर dedupe करो, quality के लिए filter करो, और tokenized binary files में shard करो जिन्हें `DataLoader` stream कर सके। **आपके tokens की quality आपके tokens की quantity को beat करती है।**
 
 ## 1. Data ही model क्यों है
 
@@ -25,7 +25,7 @@ Better data smaller models को fewer steps के लिए train करन�
 - **FineWeb** (~15T tokens) — HuggingFace का clean Common Crawl. Default base.
 - **FineWeb-Edu** (~1.3T tokens) — एक educational-content classifier से filtered FineWeb. अपनी weight से *way* ऊपर punch करता है; small models जो इस पर trained हैं वो 5× more raw FineWeb पर trained models को match करते हैं।
 - **DCLM-Baseline** (~4T tokens) — MIT/Apple का release; FineWeb-Edu के साथ competitive, slightly different filtering style।
-- **The Pile** — पुराना लेकिन reproducibility और ablations के लिए अभी useful।
+- **Nemotron-CC** (~6.3T tokens) — Nvidia का Common Crawl synthetic rephrasing के साथ; और **Dolma 3** (AI2), fully documented OLMo 3 mix।
 
 ### Code
 
@@ -45,8 +45,8 @@ Better data smaller models को fewer steps के लिए train करन�
 
 ### Instruction / Chat (SFT के लिए, chapter 14 देखो)
 
-- **Tülu 3 SFT mix**, **Llama-Nemotron post-training**, **Open-Orca-2**, **OpenHermes-2.5**।
-- **Cosmopedia v2** — fully synthetic, extremely clean instruction data Mixtral & Llama से generated।
+- **Tülu 3 SFT mix**, **Llama-Nemotron post-training**, **SmolTalk2** (SmolLM3 mix)।
+- **Cosmopedia v2** — fully synthetic textbook-style data; 2024 generations reuse करने के बजाय current open model (Qwen3, gpt-oss) से regenerate करो।
 - **UltraFeedback / HelpSteer3** — preference optimization के लिए।
 
 ### Multimodal (अगर relevant हो)
@@ -191,7 +191,7 @@ Throughput के लिए fixed-size packing critical है — alternative (
 import numpy as np
 from transformers import AutoTokenizer
 
-tok = AutoTokenizer.from_pretrained('meta-llama/Llama-3.2-1B')
+tok = AutoTokenizer.from_pretrained('Qwen/Qwen3-0.6B')
 shard_size = 1_000_000_000
 buf = []
 shard_id = 0

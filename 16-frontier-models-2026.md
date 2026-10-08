@@ -254,9 +254,9 @@ The story: a **27B dense** Apache-licensed open model, runnable on a single 80 G
 
 ## 4. The new architecture cheat sheet
 
-Compared to the chapter 10 / 11 template (Llama-3 / Qwen 2.5 style), what changed in 2026?
+Compared to the chapter 10 / 11 template (Llama 3 / Qwen3 style), what changed in 2026?
 
-| Component | Llama 3 / Qwen 2.5 | Gemma 4 | Qwen 3.6 |
+| Component | Llama 3 / Qwen3 | Gemma 4 | Qwen 3.6 |
 |-----------|---------------------|---------|----------|
 | Attention | full GQA | sliding + global GQA, alternating | 3 × Gated DeltaNet : 1 × Gated Attention |
 | KV cache | full | shared-KV last N layers | tiny — only on attention layers |
@@ -272,7 +272,28 @@ Both make the standard transformer template feel a bit dated. Expect later 2026 
 
 ---
 
-## 5. Fine-tuning these models
+## 5. The closed frontier: GPT-6 Astra, Luna, and Sol
+
+The open models above are what you can download. The closed frontier in October 2026 is OpenAI's GPT-6 family. It matters here for two reasons: it sets the quality bar the open models chase, and its reported architecture is the clearest public signal of where transformer design is heading.
+
+**What is documented** (Microsoft Foundry model catalog, September 2026):
+
+| Model | Version date | Context (in / out) | Positioning |
+|-------|--------------|--------------------|-------------|
+| gpt-6-astra | 2026-09-03 | 922 k / 128 k | hardest reasoning, deepest agentic work |
+| gpt-6-luna | 2026-09-22 | 922 k / 128 k | high-volume, latency-sensitive |
+| gpt-6-sol | 2026-09-22 | 922 k / 128 k | default for agents and coding |
+| gpt-6.1-sol | 2026-09-29 | 922 k / 128 k | same base as Sol, cheaper serving profile |
+
+All four expose reasoning-effort and verbosity controls, the Responses API, and computer use. Training data runs to April 2026 (May 2026 for Luna).
+
+**What is reported, not confirmed:** The Information (September 2026) reported that Astra is a **looped / recurrent-depth transformer** (chapter 10 §11). A Microsoft catalog note that circulated as screenshots on 6 October 2026 reads: "GPT-6.1-Sol uses the same base model weights as GPT-6 Sol with two inference passes instead of three." OpenAI has not published the architecture and the note is not on the live catalog page, so treat it as reported. Jakub Pachocki's public remark that GPT-6's compute-graph depth, "including Astra, is within a factor of two of GPT-4", fits a looped core better than a much deeper stack.
+
+**Why it matters for you:** if the frontier buys extra quality by re-running shared blocks instead of adding parameters, then (a) the small-model recipes in chapter 14 can borrow the idea today (Geiping et al. 2025 and Ouro show it works at 1-4B), and (b) model tiers become a serving knob, three passes versus two, rather than separate training runs.
+
+---
+
+## 6. Fine-tuning these models
 
 The good news: the chapter 14 SFT / DPO / GRPO recipes work as-is, with two caveats.
 
@@ -283,7 +304,7 @@ QLoRA (chapter 12) works on both. For Gemma 4 PLE, freeze the per-layer embeddin
 
 ---
 
-## 6. Decision tree for picking a model in 2026
+## 7. Decision tree for picking a model in 2026
 
 ```
 Need vision + audio + on-device?
@@ -307,7 +328,7 @@ Need to fine-tune cheaply on 1 GPU?
 
 ---
 
-## 7. Going deeper
+## 8. Going deeper
 
 - **HuggingFace blog: Welcome Gemma 4** — the official launch post with multimodal demos and code snippets.
 - **Qwen3.6-27B blog** at qwen.ai — architecture, benchmarks, why dense beat MoE for them.
@@ -325,5 +346,8 @@ Need to fine-tune cheaply on 1 GPU?
 - [Qwen3.6-35B-A3B — HuggingFace](https://huggingface.co/Qwen/Qwen3.6-35B-A3B)
 - [Qwen3.6-27B — HuggingFace](https://huggingface.co/Qwen/Qwen3.6-27B)
 - [Qwen3.6-27B blog — qwen.ai](https://qwen.ai/blog?id=qwen3.6-27b)
+- [Foundry Models sold directly by Azure — Microsoft Learn](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure)
+- [gpt-6.1-sol — Azure AI Foundry model catalog](https://ai.azure.com/catalog/models/gpt-6.1-sol)
+- [GPT-6 Astra, looped transformers, and recurrent depth — Sebastian Raschka](https://magazine.sebastianraschka.com/p/gpt-6-astra-looped-transformers-and)
 
 Next: **[17-production-inference.md](./17-production-inference.md)** — how to actually serve any of these to 10,000 customers.

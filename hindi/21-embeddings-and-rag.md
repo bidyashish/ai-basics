@@ -69,7 +69,6 @@ Late 2026 में leaderboard (MTEB) इन वालों से dominated �
 | **bge-en-icl / bge-m3** | 568M | 1024 | 70-71 | multi-functional (dense + sparse + multi-vector) |
 | **mxbai-embed-large-v1** | 335M | 1024 | ~67 | strong open default, Apache 2.0 |
 | **gte-Qwen2-7B-instruct** | 7B | 3584 | 70-71 | instruct-tunable, big |
-| **e5-mistral-7B-instruct** | 7B | 4096 | 67-69 | older but battle-tested |
 | **nomic-embed-text-v1.5** | 137M | 64-768 (Matryoshka) | 62-65 | tiny + Matryoshka truncation |
 | **OpenAI text-embedding-3-large** | API | 3072 | 64-66 | popular default; 256 तक truncatable |
 | **Voyage-3 / Voyage-large-2** | API | 1024-2048 | 70-72 | top-tier paid; Anthropic recommends |

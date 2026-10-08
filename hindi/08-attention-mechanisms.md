@@ -150,11 +150,11 @@ block_mask = create_block_mask(causal, B=None, H=None, Q_LEN=T, KV_LEN=T)
 out = flex_attention(q, k, v, block_mask=block_mask)
 ```
 
-Flex Attention एक 2025 superpower है। अगर आपने कभी `+ -1e9 * mask` line लिखी है और memory को blow up होते देखा है, ये आपकी problem solve करता है।
+FlexAttention custom masks के लिए standard tool है। अगर आपने कभी `+ -1e9 * mask` line लिखी है और memory को blow up होते देखा है, ये आपकी problem solve करता है।
 
 ---
 
-## 7. Sliding-window Attention (Mistral-style)
+## 7. Sliding-window Attention
 
 कुछ models attention को past के `W` tokens के window तक bound करते हैं:
 
@@ -162,7 +162,7 @@ Flex Attention एक 2025 superpower है। अगर आपने कभी
 position i positions [max(0, i - W + 1), i] पर attend करता है
 ```
 
-Mistral 7B (W=4096), Gemma 2/3 (mixed local + global), Llama 4 long-context layers द्वारा used। Long context पर compute बचाता है, little quality loss के साथ क्योंकि most useful information local है।
+Gemma 3/4 (local W=1024, global layers के साथ interleaved), gpt-oss (128-token banded layers dense वालों के साथ alternating), Llama 4 long-context layers द्वारा used। Long context पर compute बचाता है, little quality loss के साथ क्योंकि most useful information local है।
 
 Flex Attention में:
 
@@ -171,7 +171,7 @@ def sliding(b, h, q_idx, kv_idx):
     return (q_idx >= kv_idx) & (q_idx - kv_idx < W)
 ```
 
-एक common 2025-2026 architecture pattern: **interleave** sliding-window layers with full-context layers (e.g., Gemma 2 1:1 alternating local/global use करता है)। आप quadratic blow-up के across all layers के बिना long-range connectivity पाते हो।
+एक common 2025-2026 architecture pattern: **interleave** sliding-window layers with full-context layers (Gemma 3 5 local : 1 global use करता है; gpt-oss 1:1 alternate करता है)। आप quadratic blow-up के across all layers के बिना long-range connectivity पाते हो।
 
 ---
 
@@ -192,7 +192,7 @@ self.v_proj = nn.Linear(D, H_kv * head_dim, bias=False)
 
 ---
 
-## 9. Multi-Head Latent Attention (DeepSeek-V2/V3)
+## 9. Multi-Head Latent Attention (DeepSeek-V3 family)
 
 एक 2024 invention जो top-tier models के लिए 2026 architecture standard बन गई है। **MLA** K और V को एक tiny shared latent space में project करता है (`d_kv ≈ 512` regardless of `H`), सिर्फ़ latent store करता है, और K/V on the fly reconstruct करता है:
 
@@ -200,17 +200,17 @@ self.v_proj = nn.Linear(D, H_kv * head_dim, bias=False)
 - Quality MHA पर on par है, often same KV-cache budget पर GQA से better।
 - More complex to implement; numerical stability को care चाहिए।
 
-DeepSeek-V2/V3, MiniMax-Text-01 द्वारा used। जानने worth है कि exists; hand-rolled small LLMs के लिए, GQA simpler है। हम chapter 9 में briefly touch करते हैं।
+DeepSeek-V3 / V3.x / R1 और Kimi K2 (जो DeepSeek-V3 layout reuse करता है) द्वारा used। जानने worth है कि exists; hand-rolled small LLMs के लिए, GQA simpler है। हम chapter 9 में briefly touch करते हैं।
 
 ---
 
 ## 10. Biases / Temperatures के साथ Attention (optional)
 
-कुछ 2025 models attention के अंदर small wrinkles add करते हैं:
+Current models attention के अंदर small wrinkles add करते हैं:
 
-- **QK-norm** (Llama-3.5-Int4, OLMoE, Gemma 3): RoPE के *बाद*, dot product से पहले Q और K को RMSNorm apply करो। Long-context training stabilize करता है।
-- **Attention temperature** (e.g., Gemma 2 logit soft-cap): softmax(`x`) को `softmax(soft_cap * tanh(x / soft_cap))` से replace करो। Runaway logits prevent करने के लिए attention scores को cap करता है।
-- **Attention sinks** (StreamingLLM): long context पर softmax को anchor करने के लिए हमेशा tokens 0-3 को K/V cache में रखो।
+- **QK-norm** (Qwen3, OLMo 2, Gemma 3): RoPE के *बाद*, dot product से पहले Q और K को RMSNorm apply करो। Long-context training stabilize करता है।
+- **Learned attention sinks** (gpt-oss): softmax denominator में एक per-head learned logit add होता है, ताकि head अपना weight "nothing" पर रख सके। बिना किसी special tokens के long context stabilize करता है।
+- **Inference पर attention sinks** (StreamingLLM): evict करते समय tokens 0-3 को K/V cache में रखो, क्योंकि softmax ने वहां weight dump करना सीख लिया है।
 
 ये standard attention block के top पर 1-2 line tweaks हैं।
 
@@ -261,7 +261,7 @@ Inference के लिए, KV cache (chapter 9) often memory को orders of m
 - **head_dim = 64 या 128**; `D` `H` से divisible।
 - **Attention के अंदर RoPE apply करो**, Q/K linear projections के बाद, dot product से पहले।
 - **Inference पर, GQA ratio 4-8** standard है। अगर आपको really long context चाहिए, MLA देखो।
-- अगर आप long context पर attention divergence देखते हो, **Soft-cap logits या QK-norm**।
+- अगर आप long context पर attention divergence देखते हो, **QK-norm add करो**।
 
 ---
 

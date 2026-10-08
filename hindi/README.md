@@ -28,16 +28,16 @@ Chapters एक के बाद एक build होते हैं। अग�
 | 04 | [Data](./04-data.md) | FineWeb-Edu, DCLM, MinHash dedup, classifier filtering, sharding। |
 | 05 | [Model Scale](./05-model-scale.md) | Scaling laws, Chinchilla, over-training, test-time compute। |
 | 06 | [Tokenization & Embeddings](./06-tokenization-embeddings.md) | BPE, vocab choices, embedding tables, tied heads। |
-| 07 | [Positional Encodings](./07-positional-encodings.md) | Sinusoidal, ALiBi, RoPE (पूरा math + code), YaRN। |
+| 07 | [Positional Encodings](./07-positional-encodings.md) | RoPE (पूरा math + code), YaRN, NoPE layers। |
 | 08 | [Attention Mechanisms](./08-attention-mechanisms.md) | Q/K/V, multi-head, causal masking, Flash Attention 3, FlexAttention। |
 | 09 | [KV Cache, MQA, GQA](./09-kv-cache-mqa-gqa.md) | Inference में सबसे बड़ा win, plus MLA, PagedAttention, speculative decoding। |
-| 10 | [Building Blocks](./10-building-blocks.md) | RMSNorm, SwiGLU, residuals, pre-norm, QK-norm। |
+| 10 | [Building Blocks](./10-building-blocks.md) | RMSNorm, SwiGLU, residuals, pre-norm, QK-norm, looped / recurrent-depth blocks। |
 | 11 | [Building Qwen from Scratch](./11-building-qwen-from-scratch.md) | सब कुछ glue करके एक real, working LLM बनाओ। |
-| 12 | [Quantization](./12-quantization.md) | INT8/INT4/FP8/NVFP4, GPTQ, AWQ, GGUF, BitNet, QLoRA। |
+| 12 | [Quantization](./12-quantization.md) | INT8/INT4/FP8/NVFP4, GPTQ, AWQ, GGUF, QLoRA। |
 | 13 | [Mixture of Experts](./13-mixture-of-experts.md) | Sparse models, routing, DeepSeek-V3-style fine-grained MoE। |
 | 14 | [Training Small Language Models](./14-training-small-language-models.md) | पूरा pretraining + SFT + DPO/GRPO pipeline Muon और FSDP2 के साथ। |
 | 15 | [Reading Training Logs](./15-reading-training-logs.md) | W&B charts, हर metric का मतलब, loss curves debug करना। |
-| 16 | [Frontier Models in 2026](./16-frontier-models-2026.md) | Gemma 4 (E2B/E4B/26B-A4B/31B Dense) और Qwen 3.6 (27B Dense / 35B-A3B MoE)। |
+| 16 | [Frontier Models in 2026](./16-frontier-models-2026.md) | Gemma 4 (E2B/E4B/26B-A4B/31B Dense), Qwen 3.6 (27B Dense / 35B-A3B MoE), और GPT-6 Astra / Sol picture। |
 | 17 | [Production Inference](./17-production-inference.md) | 10,000 requests serve करना: vLLM/SGLang, FP8, prefix cache, HBM bandwidth, token caching, per-archetype pricing। |
 | 18 | [AI Apps & Agents](./18-ai-apps-and-agents.md) | Model के ऊपर का harness: 12 usage patterns, MCP, real apps (Cursor, Claude Code, Cline), provider pricing, 300-line agent। |
 | 19 | [Evaluation](./19-evaluation.md) | Capability benchmarks, LLM-as-judge, golden sets, agent evals (SWE-bench, OSWorld), eval-driven development। |

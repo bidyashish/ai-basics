@@ -26,16 +26,16 @@ The chapters build on each other. If you only have time for a fast tour, read th
 | 04 | [Data](./04-data.md) | FineWeb-Edu, DCLM, MinHash dedup, classifier filtering, sharding. |
 | 05 | [Model Scale](./05-model-scale.md) | Scaling laws, Chinchilla, over-training, test-time compute. |
 | 06 | [Tokenization & Embeddings](./06-tokenization-embeddings.md) | BPE, vocab choices, embedding tables, tied heads. |
-| 07 | [Positional Encodings](./07-positional-encodings.md) | Sinusoidal, ALiBi, RoPE (full math + code), YaRN. |
+| 07 | [Positional Encodings](./07-positional-encodings.md) | RoPE (full math + code), YaRN, NoPE layers. |
 | 08 | [Attention Mechanisms](./08-attention-mechanisms.md) | Q/K/V, multi-head, causal masking, Flash Attention 3, FlexAttention. |
 | 09 | [KV Cache, MQA, GQA](./09-kv-cache-mqa-gqa.md) | The single biggest inference win, plus MLA, PagedAttention, speculative decoding. |
-| 10 | [Building Blocks](./10-building-blocks.md) | RMSNorm, SwiGLU, residuals, pre-norm, QK-norm. |
+| 10 | [Building Blocks](./10-building-blocks.md) | RMSNorm, SwiGLU, residuals, pre-norm, QK-norm, looped / recurrent-depth blocks. |
 | 11 | [Building Qwen from Scratch](./11-building-qwen-from-scratch.md) | Glue everything into a real, working LLM with weights you can load. |
-| 12 | [Quantization](./12-quantization.md) | INT8/INT4/FP8/NVFP4, GPTQ, AWQ, GGUF, BitNet, QLoRA. |
+| 12 | [Quantization](./12-quantization.md) | INT8/INT4/FP8/NVFP4, GPTQ, AWQ, GGUF, QLoRA. |
 | 13 | [Mixture of Experts](./13-mixture-of-experts.md) | Sparse models, routing, DeepSeek-V3-style fine-grained MoE. |
 | 14 | [Training Small Language Models](./14-training-small-language-models.md) | Full pretraining + SFT + DPO/GRPO pipeline with Muon and FSDP2. |
 | 15 | [Reading Training Logs](./15-reading-training-logs.md) | W&B charts, what each metric means, debugging loss curves. |
-| 16 | [Frontier Models in 2026](./16-frontier-models-2026.md) | Gemma 4 (E2B/E4B/26B-A4B/31B Dense) and Qwen 3.6 (27B Dense / 35B-A3B MoE). |
+| 16 | [Frontier Models in 2026](./16-frontier-models-2026.md) | Gemma 4 (E2B/E4B/26B-A4B/31B Dense), Qwen 3.6 (27B Dense / 35B-A3B MoE), and the GPT-6 Astra / Sol picture. |
 | 17 | [Production Inference](./17-production-inference.md) | Serving 10,000 requests: vLLM/SGLang, FP8, prefix cache, HBM bandwidth, token caching, pricing per archetype. |
 | 18 | [AI Apps & Agents](./18-ai-apps-and-agents.md) | The harness above the model: 12 usage patterns, MCP, real-world apps (Cursor, Claude Code, Cline), provider pricing, 300-line agent. |
 | 19 | [Evaluation](./19-evaluation.md) | Capability benchmarks, LLM-as-judge, golden sets, agent evals (SWE-bench, OSWorld, GAIA), eval-driven development. |

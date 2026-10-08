@@ -28,7 +28,7 @@ Throughout this chapter हम हर एक cover करेंगे, लेक
 कुछ thousand से few hundred thousand `(prompt, ideal_response)` pairs base model को एक particular style में instructions follow करना सिखाते हैं। Public datasets:
 
 - **Tülu 3 SFT mix** (AI2) — comprehensive, well-curated।
-- **OpenHermes-2.5** — community gold standard।
+- **SmolTalk2** — SmolLM3 के पीछे HuggingFace का open SFT mix।
 - **Llama-Nemotron post-training** (Nvidia, 2024) — frontier-grade।
 - **UltraChat-200k** — reliable workhorse।
 

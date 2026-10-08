@@ -28,7 +28,7 @@ The alignment pipeline in 2026 has converged on three stages, all covered in cha
 A few thousand to a few hundred thousand `(prompt, ideal_response)` pairs teach the base model to follow instructions in a particular style. Public datasets:
 
 - **Tülu 3 SFT mix** (AI2) — comprehensive, well-curated.
-- **OpenHermes-2.5** — community gold standard.
+- **SmolTalk2** — HuggingFace's open SFT mix behind SmolLM3.
 - **Llama-Nemotron post-training** (Nvidia, 2024) — frontier-grade.
 - **UltraChat-200k** — reliable workhorse.
 

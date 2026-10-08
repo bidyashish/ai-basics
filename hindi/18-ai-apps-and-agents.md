@@ -442,7 +442,7 @@ Big six API providers, plus major aggregators। **Prices list rates हैं; 
 
 | Provider | Models | Pricing | Notes |
 |----------|--------|---------|-------|
-| **Together AI** | Llama, Qwen, Mixtral, DeepSeek, custom | $0.20-2/M | broad coverage, BYO fine-tunes |
+| **Together AI** | Llama, Qwen, DeepSeek, Kimi, custom | $0.20-2/M | broad coverage, BYO fine-tunes |
 | **Fireworks** | Llama, Qwen, custom | $0.20-3/M | LoRA serving, function calling |
 | **Replicate** | open models | per-second GPU billing | cold-batch jobs के लिए best |
 | **RunPod / Vast** | self-managed | hourly GPU | serious workloads के लिए |

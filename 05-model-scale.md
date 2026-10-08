@@ -1,6 +1,6 @@
 # 05 · Model Scale — Size, Data, and Compute
 
-> **TL;DR** Model **quality** scales smoothly with three things: parameter count `N`, training tokens `D`, and compute `C ≈ 6 N D`. **Chinchilla** said `D ≈ 20 × N` is compute-optimal *for training cost*. In 2026 nobody trains Chinchilla-optimal anymore — small models are deliberately **over-trained** (Llama 3.1-8B saw 15 T tokens, Qwen2.5-7B saw 18 T) because cheap inference matters more than cheap training. Plus, **test-time compute** (long chain-of-thought) opens a second axis: a small model thinking longer often beats a big one answering immediately.
+> **TL;DR** Model **quality** scales smoothly with three things: parameter count `N`, training tokens `D`, and compute `C ≈ 6 N D`. **Chinchilla** said `D ≈ 20 × N` is compute-optimal *for training cost*. In 2026 nobody trains Chinchilla-optimal anymore — small models are deliberately **over-trained** (Llama 3.1-8B saw 15 T tokens, Qwen3-8B saw 36 T) because cheap inference matters more than cheap training. Plus, **test-time compute** (long chain-of-thought) opens a second axis: a small model thinking longer often beats a big one answering immediately.
 
 ## 1. The scaling-law mental model
 
@@ -65,12 +65,10 @@ So you'd rather spend extra training compute on a smaller model that runs faster
 | Model | Params N | Training tokens D | Tokens / param |
 |-------|----------|-------------------|----------------|
 | Chinchilla 2022 | 70 B | 1.4 T | 20 |
-| Llama 2-7B | 7 B | 2 T | ~290 |
-| Llama 3-8B | 8 B | 15 T | ~1900 |
 | Llama 3.1-8B | 8 B | 15 T | ~1900 |
-| Qwen2.5-7B | 7 B | 18 T | ~2600 |
+| Qwen3-8B | 8 B | 36 T | ~4400 |
 | Qwen3-4B | 4 B | 36 T | ~9000 |
-| SmolLM2-1.7B | 1.7 B | 11 T | ~6500 |
+| SmolLM3-3B | 3 B | 11 T | ~3700 |
 
 Loss-per-FLOP is worse than Chinchilla — but **loss-per-inference-FLOP** is *much* better. The Beyond-Chinchilla paper (Sardana et al. 2023) formalized this: the optimal `D/N` for an inference-aware budget can easily be 10-100×.
 
@@ -88,9 +86,9 @@ Examples:
 - Train a 1 B model on 100 B tokens: `6 × 1e9 × 1e11 = 6e20` FLOPs.
 - An H100 does ~1e15 BF16 FLOPs/s sustained (~30% of peak).
 - → 6e20 / 1e15 = 6e5 seconds = ~7 GPU-days.
-- On 8 H100s with good DDP: ~1 day.
+- On 8 H100s with FSDP2: ~1 day.
 
-For a 7 B model on 2 T tokens: `6 × 7e9 × 2e12 = 8.4e22` FLOPs. ~8.4e22 / 1e15 ≈ 1000 GPU-days. On 256 H100s, ~4 days. This is roughly what it takes to train a Llama 2-7B-class model.
+For a 7 B model on 2 T tokens: `6 × 7e9 × 2e12 = 8.4e22` FLOPs. ~8.4e22 / 1e15 ≈ 1000 GPU-days. On 256 H100s, ~4 days. This is what a 2023-era 7B pretrain cost; 2026 models see 10-18× more tokens.
 
 This back-of-envelope is enough to plan most experiments. **Memorize `C = 6ND`.**
 
@@ -139,7 +137,7 @@ The remaining "true" emergence is at the level of *complex behavior* (multi-step
 
 ## 7. Test-time compute: the second axis
 
-In 2025 OpenAI's o1 and DeepSeek R1 made it obvious: **a model that thinks longer can outperform a much larger model that thinks once**.
+OpenAI's o1 (2024) and DeepSeek-R1 (2025) made it obvious: **a model that thinks longer can outperform a much larger model that thinks once**.
 
 How: train the model with chain-of-thought (CoT) traces; at inference, let it generate hundreds or thousands of "thinking" tokens before its answer. This costs more inference compute per query but no more training compute.
 
@@ -151,6 +149,8 @@ Reasoning-model papers (DeepSeek-R1, Tülu 3 with verifiable rewards, OpenR1) sh
 
 Practically, this means scale isn't only `N`, `D`, `C_train` anymore. There's a fourth axis `C_test` (tokens generated per query). Scaling laws for test-time compute exist now (OpenAI's "scaling reasoning" report, DeepMind's "Scaling Inference-Time Compute").
 
+A fifth knob appeared in 2026: **depth recurrence**. A looped transformer (chapter 10 §11) reuses the same blocks for several passes, so a model can spend more compute per token without more parameters and without emitting more tokens. The Information reported that GPT-6 Astra works this way; the open evidence (Geiping et al. 2025, Ouro) shows the effect is real at 1-4B scale.
+
 ---
 
 ## 8. Picking N, D, C for your project
@@ -158,13 +158,13 @@ Practically, this means scale isn't only `N`, `D`, `C_train` anymore. There's a 
 Some quick prescriptions:
 
 ### "I want to learn / replicate something small"
-- **N = 100M-500M, D = 10B-30B**. Trains in hours on a single GPU node, perfectly capable of producing readable English. Reference: nanoGPT, SmolLM, MicroLlama.
+- **N = 100M-500M, D = 10B-30B**. Trains in hours on a single GPU node, perfectly capable of producing readable English. Reference: nanochat, SmolLM3, OLMo 3.
 
 ### "I want a useful base model for fine-tuning, single-node budget"
 - **N = 1B-3B, D = 100-300B tokens.** Use FineWeb-Edu + StarCoder2. Trains in 1-2 weeks on 8× H100. Result rivals 2023's 7B models.
 
 ### "I want a competitive chat model in 2026"
-- **N = 4B-14B, D = 4-15T tokens.** Need cluster-scale (64+ H100). After pretraining, do SFT + DPO/KTO. Match Qwen2.5/Llama-3.1 territory.
+- **N = 4B-14B, D = 4-15T tokens.** Need cluster-scale (64+ H100). After pretraining, do SFT + DPO/KTO. Match Qwen3-8B territory.
 
 ### "I want a reasoning model"
 - Start from a strong base. Apply RL with verifiable rewards (RLHF replaced by RLVR for math/code). 7-32B params often enough.
@@ -180,10 +180,10 @@ Within a fixed N, you choose layers `L`, model dim `D`, heads `H`, and FFN dim `
 
 | Model | L | D | H | F | N |
 |-------|---|---|---|---|---|
-| Llama-3.2-1B | 16 | 2048 | 32 | 8192 | 1.2 B |
-| Llama-3-8B | 32 | 4096 | 32 | 14336 | 8 B |
-| Qwen2.5-7B | 28 | 3584 | 28 | 18944 | 7 B |
-| Qwen2.5-14B | 48 | 5120 | 40 | 13824 | 14 B |
+| Qwen3-0.6B | 28 | 1024 | 16 | 3072 | 0.6 B |
+| Llama-3.1-8B | 32 | 4096 | 32 | 14336 | 8 B |
+| Qwen3-8B | 36 | 4096 | 32 | 12288 | 8.2 B |
+| Qwen3-32B | 64 | 5120 | 64 | 25600 | 32.8 B |
 | DeepSeek-V3-base | 61 | 7168 | 128 | 18432* (MoE) | 671 B (37 B active) |
 
 *DeepSeek-V3 uses MoE with shared + routed experts, see chapter 13.
@@ -244,8 +244,7 @@ Run, evaluate (chapter 14), iterate. This is a real, achievable 2026 weekend-sid
 
 - Hoffmann et al. 2022 — "Training Compute-Optimal LLMs" (Chinchilla). Read once to understand the optimum.
 - Sardana et al. 2023 — "Beyond Chinchilla-Optimal," the inference-aware version.
-- Hoffmann et al. 2025 — updated scaling-law fits for modern architectures.
 - DeepSeek-V3 technical report — modern compute-budget arithmetic with MoE.
-- Llama 3, Qwen 2.5, Qwen3 technical reports — real recipes used by real teams.
+- Qwen3, SmolLM3, and OLMo 3 technical reports — real recipes used by real teams.
 
 Next: **[06-tokenization-embeddings.md](./06-tokenization-embeddings.md)** — turning text into numbers.

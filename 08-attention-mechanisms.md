@@ -150,11 +150,11 @@ block_mask = create_block_mask(causal, B=None, H=None, Q_LEN=T, KV_LEN=T)
 out = flex_attention(q, k, v, block_mask=block_mask)
 ```
 
-Flex Attention is a 2025 superpower. If you've ever written a `+ -1e9 * mask` line and watched memory blow up, it solves your problem.
+FlexAttention is the standard tool for custom masks. If you've ever written a `+ -1e9 * mask` line and watched memory blow up, it solves your problem.
 
 ---
 
-## 7. Sliding-window attention (Mistral-style)
+## 7. Sliding-window attention
 
 Some models bound attention to a window of the past `W` tokens:
 
@@ -162,7 +162,7 @@ Some models bound attention to a window of the past `W` tokens:
 position i attends to positions [max(0, i - W + 1), i]
 ```
 
-Used by Mistral 7B (W=4096), Gemma 2/3 (mixed local + global), Llama 4 long-context layers. Saves compute at long context, with little quality loss because most useful information is local.
+Used by Gemma 3/4 (local W=1024 interleaved with global layers), gpt-oss (128-token banded layers alternating with dense ones), Llama 4 long-context layers. Saves compute at long context, with little quality loss because most useful information is local.
 
 In Flex Attention:
 
@@ -171,7 +171,7 @@ def sliding(b, h, q_idx, kv_idx):
     return (q_idx >= kv_idx) & (q_idx - kv_idx < W)
 ```
 
-A common 2025-2026 architecture pattern: **interleave** sliding-window layers with full-context layers (e.g., Gemma 2 uses 1:1 alternating local/global). You get long-range connectivity without quadratic blow-up across all layers.
+A common 2025-2026 architecture pattern: **interleave** sliding-window layers with full-context layers (Gemma 3 uses 5 local : 1 global; gpt-oss alternates 1:1). You get long-range connectivity without quadratic blow-up across all layers.
 
 ---
 
@@ -192,7 +192,7 @@ Then call `F.scaled_dot_product_attention(q, k, v, is_causal=True, enable_gqa=Tr
 
 ---
 
-## 9. Multi-Head Latent Attention (DeepSeek-V2/V3)
+## 9. Multi-Head Latent Attention (DeepSeek-V3 family)
 
 A 2024 invention that has become a 2026 architecture standard for top-tier models. **MLA** projects K and V into a tiny shared latent space (`d_kv ≈ 512` regardless of `H`), stores only the latent, and reconstructs K/V on the fly:
 
@@ -200,17 +200,17 @@ A 2024 invention that has become a 2026 architecture standard for top-tier model
 - Quality is on par with MHA, often better than GQA at the same KV-cache budget.
 - More complex to implement; numerical stability needs care.
 
-Used by DeepSeek-V2/V3, MiniMax-Text-01. Worth knowing exists; for hand-rolled small LLMs, GQA is simpler. We touch it briefly in chapter 9.
+Used by DeepSeek-V3 / V3.x / R1 and Kimi K2 (which reuses the DeepSeek-V3 layout). Worth knowing exists; for hand-rolled small LLMs, GQA is simpler. We touch it briefly in chapter 9.
 
 ---
 
 ## 10. Attention with biases / temperatures (optional)
 
-Some 2025 models add small wrinkles inside attention:
+Current models add small wrinkles inside attention:
 
-- **QK-norm** (Llama-3.5-Int4, OLMoE, Gemma 3): apply RMSNorm to Q and K *after* RoPE, before the dot product. Stabilizes long-context training.
-- **Attention temperature** (e.g., Gemma 2 logit soft-cap): replace softmax(`x`) with `softmax(soft_cap * tanh(x / soft_cap))`. Caps attention scores to prevent runaway logits.
-- **Attention sinks** (StreamingLLM): always keep tokens 0-3 in K/V cache to anchor softmax at long context.
+- **QK-norm** (Qwen3, OLMo 2, Gemma 3): apply RMSNorm to Q and K *after* RoPE, before the dot product. Stabilizes long-context training.
+- **Learned attention sinks** (gpt-oss): a per-head learned logit added to the softmax denominator, so a head can put its weight on "nothing". Stabilizes long context without any special tokens.
+- **Attention sinks at inference** (StreamingLLM): keep tokens 0-3 in the K/V cache when evicting, because softmax has learned to dump weight there.
 
 These are 1-2 line tweaks on top of the standard attention block.
 
@@ -261,7 +261,7 @@ For inference, the KV cache (chapter 9) often dominates memory by orders of magn
 - **head_dim = 64 or 128**; `D` divisible by `H`.
 - **Apply RoPE inside attention**, after Q/K linear projections, before the dot product.
 - **At inference, GQA ratio 4-8** is standard. If you really need long context, look at MLA.
-- **Soft-cap logits or QK-norm** if you see attention divergence at long context.
+- **Add QK-norm** if you see attention divergence at long context.
 
 ---
 

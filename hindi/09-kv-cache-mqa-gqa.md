@@ -42,18 +42,18 @@ Per token total memory (सारे layers के across, K और V दोन�
 bytes_per_token = 2 (K, V) × L × H_kv × head_dim × bytes_per_element
 ```
 
-**Llama-3-8B** के लिए (32 layers, GQA के साथ H_kv = 8, head_dim = 128, fp16):
+**Qwen3-8B** के लिए (36 layers, GQA के साथ H_kv = 8, head_dim = 128, bf16):
 
 ```
-2 × 32 × 8 × 128 × 2 = 131 072 bytes ≈ 128 KB / token
+2 × 36 × 8 × 128 × 2 = 147 456 bytes ≈ 144 KB / token
 ```
 
-32k-context conversation के लिए: 128 KB × 32 000 = **सिर्फ़ cache के लिए 4.2 GB**।
-**8 GB weights** add करो और आप ~12 GB पर हो — 24 GB GPU पर fine।
+32k-context conversation के लिए: 144 KB × 32 000 = **सिर्फ़ cache के लिए 4.7 GB**।
+**16 GB bf16 weights** add करो और आप ~21 GB पर हो — 24 GB GPU पर tight, इसीलिए fp8 weights या KV quantization matter करते हैं।
 
-**Llama-3-70B** के लिए (80 layers, H_kv = 8, head_dim = 128, fp16): ~330 KB/token, 32k context पर ~10 GB। Plus 140 GB weights। अब आपको MQA या quantization या model sharding चाहिए।
+**Qwen3-32B** के लिए (64 layers, H_kv = 8, head_dim = 128, bf16): 256 KB/token, 32k context पर ~8.4 GB। Plus 64 GB weights। अब आपको दो GPUs, fp8, या MLA-class tricks चाहिए।
 
-**Mistral-7B** के लिए (originally MHA H_kv = 32 के साथ): ~512 KB/token। Cache cost चौगुनी। बिल्कुल इसलिए Mistral बाद के versions में **GQA** पर switched।
+अगर Qwen3-8B plain MHA होता (H_kv = 32): ~576 KB/token, 4× cache। इसीलिए अब कोई 8B पर MHA ship नहीं करता।
 
 KV cache inference पर single largest variable cost है। इसे cut करो और सब कुछ cheaper हो जाता है — more concurrent users, longer contexts, smaller GPUs।
 
@@ -68,7 +68,7 @@ KV cache inference पर single largest variable cost है। इसे cut �
 | GQA (Ainslie 2023) | `H_q / H_kv` के groups द्वारा share `H_kv` | `H_kv / H_q` | almost no drop |
 | MLA (DeepSeek 2024) | latent dim ~ 512 | अभी ~10× smaller | given budget के लिए best |
 
-**GQA 2026 का default है small/medium open models के लिए।** Llama 2-70B, Llama 3, Mistral 7B v0.2+, Qwen 2.5 — सब GQA use करते हैं, typically `H_q = 32, H_kv = 8` (group size 4) या `H_q = 28, H_kv = 4` (Qwen) के साथ।
+**GQA 2026 का default है small/medium open models के लिए।** Llama 3/4, Qwen3, Gemma 3, gpt-oss — सब GQA use करते हैं, typically `H_q = 32, H_kv = 8` (group size 4) या `H_q = 28, H_kv = 4` (Qwen) के साथ।
 
 Code में:
 
@@ -138,7 +138,7 @@ LLM inference के दो distinct phases हैं very different cost profil
 
 आप एक नया token at a time process करते हो: `(B, 1, D)`। Matmuls small हैं लेकिन आप अभी भी सारे model weights और entire KV cache HBM से load करते हो। **Memory-bound**, per token expensive।
 
-H100 पर Llama-3-8B fp16 के लिए numbers:
+एक H100 पर 8B model bf16 में rough numbers:
 
 - Prefill: ~50 000 tokens/sec।
 - Decode: ~120 tokens/sec/user (single batch)।
@@ -156,7 +156,7 @@ Older inference servers **static batching** use करते थे: B requests 
 - Varying request lengths के तहत भी GPU utilization 80%+ रखता है।
 - Static batching vs chat workloads पर 2-10× higher throughput।
 
-आप ये खुद implement नहीं करते — आप vLLM, SGLang, TGI, या TensorRT-LLM use करते हो।
+आप ये खुद implement नहीं करते — आप vLLM, SGLang, या TensorRT-LLM use करते हो।
 
 ---
 
@@ -183,7 +183,7 @@ vLLM `kv_cache_dtype = "fp8"` (Hopper+) और "int8" आज support करत�
 
 ```bash
 # vLLM example
-vllm serve meta-llama/Llama-3.1-8B-Instruct --kv-cache-dtype fp8
+vllm serve Qwen/Qwen3-8B --kv-cache-dtype fp8
 ```
 
 आप on-the-fly quantize करते हो: per-token (या per-block) scales write time पर chosen। Decode int8 K/V read करता है, attention kernel के अंदर dequantize करता है।
@@ -197,7 +197,7 @@ Decode memory-bound है; GPU mostly idle रहता है KV-cache reads �
 - अगर draft सही था, आपको 1 big-model forward के cost पर 4 tokens मिले।
 - अगर ग़लत, आप suffix discard करो और restart करो — minor cost।
 
-Typical speedup: chat workloads के लिए **2-3× wall-clock**, no quality loss के साथ (big model अभी भी हर emitted token choose करता है)। Implementations: vLLM `--speculative-config`, SGLang Eagle, TGI Medusa।
+Typical speedup: chat workloads के लिए **2-3× wall-clock**, no quality loss के साथ (big model अभी भी हर emitted token choose करता है)। Implementations: vLLM `--speculative-config`, SGLang EAGLE-3।
 
 A 2026 variant: **EAGLE-2 / EAGLE-3** big model के hidden states पर trained एक small auxiliary head use करता है; near-zero overhead, ~3× speedup।
 
@@ -210,12 +210,12 @@ A 2026 variant: **EAGLE-2 / EAGLE-3** big model के hidden states पर trai
 - **GQA / MLA** — small KV cache।
 - **YaRN** RoPE scaling (chapter 7)।
 - **KV quantization** (fp8/int4)।
-- कुछ layers में **Sliding window attention** (Mistral, Gemma)।
+- कुछ layers में **Sliding window attention** (Gemma 3, gpt-oss)।
 - **Attention sinks** — हमेशा cache में tokens 0-3 रखो (StreamingLLM)।
 - **Prefix caching / RadixAttention** — repeated system prompts के लिए KV share करो।
 - **Dynamic compression** — low-importance KV entries drop करो (`H2O`, `SnapKV`, `KIVI`)।
 
-A 7B model का 1M context पर single-GPU inference अब feasible है (Qwen 2.5-1M, Gemma 3) ऊपर stack जैसे का use करते हुए।
+8B-class model का 1M context पर single-GPU inference अब feasible है (YaRN के साथ Qwen3.6) ऊपर जैसी stack use करते हुए।
 
 ---
 
@@ -261,7 +261,6 @@ Batched generation के लिए, **left-padding** (different lengths वा�
 | **vLLM** | Best general throughput, PagedAttention, huge community | OpenAI-compatible API; Python heavy |
 | **SGLang** | RadixAttention prefix cache, fast structured-output | Newer, fewer corners covered |
 | **TensorRT-LLM** | NVIDIA पर lowest latency, production के लिए best | NVIDIA-only, build step painful है |
-| **TGI (HuggingFace)** | HF stack के लिए drop-in | vLLM से slower |
 | **llama.cpp** | CPU + Apple Silicon + tiny GPUs | Quantized only |
 | **MLX** | Apple Silicon native | Mac-only |
 
@@ -270,7 +269,7 @@ Self-hosted GPU inference के लिए, **vLLM 2026 में safe default �
 ```bash
 # तीन lines में vLLM
 pip install vllm
-vllm serve Qwen/Qwen3-4B-Instruct --gpu-memory-utilization 0.9 --max-model-len 32768
+vllm serve Qwen/Qwen3-4B-Instruct-2507 --gpu-memory-utilization 0.9 --max-model-len 32768
 # अब http://localhost:8000/v1/chat/completions hit करो
 ```
 

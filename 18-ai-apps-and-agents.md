@@ -442,7 +442,7 @@ When the user **feels** speed (voice, agents, IDE), Groq or Cerebras can be the 
 
 | Provider | Models | Pricing | Notes |
 |----------|--------|---------|-------|
-| **Together AI** | Llama, Qwen, Mixtral, DeepSeek, custom | $0.20-2/M | broad coverage, BYO fine-tunes |
+| **Together AI** | Llama, Qwen, DeepSeek, Kimi, custom | $0.20-2/M | broad coverage, BYO fine-tunes |
 | **Fireworks** | Llama, Qwen, custom | $0.20-3/M | LoRA serving, function calling |
 | **Replicate** | open models | per-second GPU billing | best for cold-batch jobs |
 | **RunPod / Vast** | self-managed | hourly GPU | for serious workloads |

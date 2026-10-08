@@ -209,7 +209,6 @@ The tool you reach for depends on the role you're playing right now. Each role h
 - **vLLM** — production default.
 - **SGLang** — best for prefix-cache-heavy workloads.
 - **TensorRT-LLM** — best NVIDIA latency.
-- **TGI** — HuggingFace's serving stack.
 - **`llama.cpp` / Ollama** — CPU + edge.
 - **MLX** — Apple Silicon.
 

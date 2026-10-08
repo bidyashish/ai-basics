@@ -72,7 +72,6 @@ TTFT **prompt prefill** plus **queue wait** से dominated है। TPOT **de
 | **vLLM** (Berkeley + community) | Default. Battle-tested, OpenAI-compatible, huge model coverage | PagedAttention, continuous batching, prefix cache, speculative, MoE, multimodal, FP8 |
 | **SGLang** (LMSYS) | Heavy prefix sharing वाले chat, structured outputs, tool calling | RadixAttention, fastest prefix-cache hit-rate; native constraint decoding |
 | **TensorRT-LLM** (NVIDIA) | NVIDIA पर max throughput, build steps करने को willing | Lowest TTFT, best fp8 / NVFP4 kernels |
-| **TGI** (HuggingFace) | HF stack के लिए drop-in | vLLM से slightly slower लेकिन simpler ops |
 | **DeepSeek SGL / DeepEP**| Frontier MoE serving | Best MoE expert-parallelism kernels |
 
 **2026 में green-field 10k-QPS chat service के लिए, vLLM या SGLang को default करो**। TensorRT-LLM तब use करो अगर आपके पास already build/deploy infra है।

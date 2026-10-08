@@ -41,8 +41,8 @@ Why the activation? Without it, stacking neurons gives you nothing more than a s
 | **ReLU** | `max(0, x)` | hockey stick | Default for hidden layers. Fast. |
 | **Sigmoid** | `1 / (1 + e^-x)` | S-curve from 0 to 1 | Old-school, output probabilities of one class. |
 | **Tanh** | `(e^x - e^-x) / (e^x + e^-x)` | S-curve from -1 to 1 | Sometimes used in RNNs. |
-| **GELU** | `x * Φ(x)` (Gaussian CDF) | Smooth ReLU | Standard in transformers (BERT, GPT-2). |
-| **SiLU / Swish** | `x * sigmoid(x)` | Smooth ReLU | Used inside SwiGLU in Llama, Qwen. |
+| **GELU** | `x * Φ(x)` (Gaussian CDF) | Smooth ReLU | Gemma's GeGLU FFN and vision encoders (SigLIP). |
+| **SiLU / Swish** | `x * sigmoid(x)` | Smooth ReLU | Used inside SwiGLU in Llama, Qwen3, DeepSeek. |
 
 A useful instinct: **modern LLMs barely use ReLU** in their feed-forward blocks anymore. SiLU and GELU dominate because their smooth gradients train more stably.
 

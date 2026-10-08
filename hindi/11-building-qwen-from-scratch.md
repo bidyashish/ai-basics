@@ -7,7 +7,7 @@
 Qwen की तीन useful properties हैं:
 
 1. **Open weights**, permissive license, 0.5B से 235B तक कई sizes में available।
-2. **Mainstream architecture** — आप यहां जो सीखते हो वो directly Llama, Mistral, Gemma, DeepSeek-base पर port होता है।
+2. **Mainstream architecture** — आप यहां जो सीखते हो वो directly Llama, Gemma, DeepSeek, gpt-oss पर port होता है।
 3. **Excellent quality** — probably 2026 में strongest small-model family।
 
 हम implementation reference के रूप में **Qwen2.5-0.5B-Instruct** target करेंगे क्योंकि ये एक laptop CPU पर download और run करने के लिए small enough है। Same code Qwen3-4B के लिए काम करता है, बस bigger config के साथ।
@@ -344,8 +344,8 @@ with torch.inference_mode():
 ऊपर का code 95% same है इनके लिए:
 
 - **Llama 3 / 3.1 / 3.2:** q/k/v proj पर `bias=False` set करो, RoPE base = 5e5, RoPE में extended context के लिए by-parts scaling, 8B+ पर untied embeddings।
-- **Mistral:** Llama की तरह, plus optionally एक sliding window mask (`is_causal=False`, custom mask)।
-- **Gemma 2/3:** RMSNorm `(1 + γ) · x / rms` के साथ (`+1` note करो!), `final_logit_softcapping`, alternating local/global attention।
+- **gpt-oss / Gemma 3:** sliding-window और full-attention layers alternate करते हैं (`is_causal=False`, custom banded mask) KV cache shrink करने के लिए।
+- **Gemma 3:** RMSNorm `(1 + γ) · x / rms` के साथ (`+1` note करो!), logit soft-capping की जगह QK-norm, 5:1 local/global attention।
 - **DeepSeek-V2/V3 (MLA + MoE):** different attention class (MLA), MoE FFN routing के साथ — chapter 13 देखो।
 - **Qwen3:** Qwen2.5 जैसा same template लेकिन `head_dim` `D / H_q` से decoupled, often model size के regardless `head_dim=128`; Qwen3 के पास thinking-mode tokens `<think>...</think>` भी हैं।
 
@@ -403,8 +403,8 @@ Meaning blooms from noise.
 ## और गहराई से
 
 - **Llama-from-scratch** repo (Naveen Garg) — gentle, complete walkthrough, easy to follow।
-- HuggingFace के `modeling_qwen2.py` और `modeling_llama.py` — production reference।
-- Andrej Karpathy के **`nanoGPT`** (GPT-2 era) और **`llama2.c`** (Llama era) — minimal, readable, instructive।
-- Qwen 2.5 / Qwen 3 technical reports।
+- HuggingFace के `modeling_qwen2.py` (और near-identical `modeling_qwen3.py`) — production reference।
+- Andrej Karpathy का **`nanochat`** — एक readable repo में full 2026-style train-and-serve stack (`nanoGPT` और `llama2.c` इसके छोटे ancestors हैं)।
+- Qwen3 technical report (Qwen2.5 report exact reference checkpoint document करता है)।
 
 Next: **[12-quantization.md](./12-quantization.md)** — model को इतना small बनाओ कि उसे actually serve कर सकें।

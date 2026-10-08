@@ -71,11 +71,10 @@ Real BPE byte-level encoding (`ä` → 2 bytes), regex के साथ pre-toke
 | Vocab | Sequence length | Embedding params (`V × D`) | कब use करें |
 |-------|-----------------|---------------------------|-------------|
 | 8 k | very long | small | toy / character-level |
-| 32 k | longer | small | pre-2024 default; English-only |
-| 50 k | balanced | medium | GPT-2 era |
+| 32 k | longer | small | legacy (Llama 1/2, Mistral 7B); English-only |
 | 100 k | shorter | bigger | code-heavy या multilingual |
 | 128 k | shorter | bigger | **2026 default** (Llama 3, Qwen3) |
-| 256 k+ | shortest | huge | DeepSeek-V3 (129 k), some multimodal |
+| 200-260 k | shortest | huge | gpt-oss (201 k), Gemma 3/4 (262 k) |
 
 Bigger vocab = fewer tokens per text = inference पर fewer FLOPs per token। लेकिन embedding table linearly grow करती है। Llama-3 का 128k vocab `D=4096` पर ~500M params add करता है, लेकिन non-English token counts को आधा cut करता है। Worth it।
 
@@ -89,8 +88,8 @@ Bigger vocab = fewer tokens per text = inference पर fewer FLOPs per token।
 
 ```python
 import tiktoken
-enc = tiktoken.get_encoding('cl100k_base')      # GPT-3.5 / 4 tokenizer
-ids = enc.encode("Hello, world!")               # [9906, 11, 1917, 0]
+enc = tiktoken.get_encoding('o200k_base')       # GPT-4o / GPT-5 / gpt-oss family
+ids = enc.encode("Hello, world!")               # [13225, 11, 2375, 0]
 text = enc.decode(ids)
 ```
 
@@ -198,7 +197,7 @@ class TiedLMModel(nn.Module):
         return logits
 ```
 
-Tying `V × D` parameters बचाता है (large vocabs के लिए significant) और often perplexity slightly improve करता है। Llama 1, GPT-2, Qwen2.5-0.5B, SmolLM सब tie करते हैं। Llama 3-8B+ **नहीं** tie करता क्योंकि LM head scale पर separately specialize कर सकता है।
+Tying `V × D` parameters बचाता है (large vocabs के लिए significant) और often perplexity slightly improve करता है। Qwen3-0.6B से 4B, Gemma 3, और SmolLM3 सब tie करते हैं। Qwen3-8B और ऊपर, और Llama 3-8B+, **नहीं** tie करते क्योंकि LM head scale पर separately specialize कर सकता है।
 
 ---
 
@@ -273,22 +272,7 @@ class MiniBPE:
 
 ## 11. Embeddings + Position = Transformer के लिए Ready
 
-Transformer block expect करता है shape `(B, T, D)`। Embedding आपको ये देता है। कई पुराने models भी इस stage पर एक **positional embedding** add करते थे:
-
-```python
-class GPTEmbedding(nn.Module):
-    def __init__(self, V, T_max, D):
-        super().__init__()
-        self.tok = nn.Embedding(V, D)
-        self.pos = nn.Embedding(T_max, D)
-
-    def forward(self, ids):
-        T = ids.size(1)
-        pos = torch.arange(T, device=ids.device)
-        return self.tok(ids) + self.pos(pos)        # (B, T, D)
-```
-
-2026 में, almost हर कोई **RoPE** (chapter 7) पर switch हो गया है, जो attention के *अंदर* apply होता है और embedding layer पर बिल्कुल नहीं। तो modern model का embedding बस `tok = self.embed(ids)` है।
+Transformer block को shape `(B, T, D)` चाहिए। Embedding आपको exactly वही देता है: `x = self.embed(ids)`। 2026 model में यहां और कुछ नहीं होता। Position **RoPE** (chapter 7) द्वारा attention के *अंदर* inject होता है, तो add करने के लिए कोई learned position table नहीं, embedding में कोई `T_max` baked नहीं, और context window stretch करते समय patch करने को कुछ नहीं।
 
 ---
 
@@ -310,6 +294,6 @@ class GPTEmbedding(nn.Module):
 - Karpathy का **`minbpe`** repo — 200 lines में scratch से BPE।
 - Sennrich et al. 2016 — original BPE paper।
 - Kudo & Richardson 2018 — SentencePiece (Unigram alternative अभी भी कुछ Asian-language tokenizers द्वारा used)।
-- HuggingFace पर Llama 3 / Qwen 2.5 / DeepSeek tokenizer JSON files — उन्हें पढ़ो, वो surprisingly clear हैं।
+- HuggingFace पर Qwen3 / Llama 3 / DeepSeek tokenizer JSON files — उन्हें पढ़ो, वो surprisingly clear हैं।
 
 Next: **[07-positional-encodings.md](./07-positional-encodings.md)** — model को बताना कि हर token कहां है।

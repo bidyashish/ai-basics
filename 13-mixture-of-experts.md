@@ -1,6 +1,6 @@
 # 13 · Mixture of Experts — Scale Without Slowing Down
 
-> **TL;DR** A **Mixture of Experts (MoE)** replaces each FFN with a pool of `E` experts and a tiny **router** that, for each token, picks the top `k` experts to run. Total parameters grow `E×`, but compute per token grows only `k×`. Done right, an MoE with **4×** the parameters of a dense model has the **same inference speed** but matches a much bigger dense model in quality. **In 2026, MoE is the default frontier-model architecture: DeepSeek-V3, Mixtral, Qwen3-MoE, Llama 4, GPT-OSS-120B all use it.**
+> **TL;DR** A **Mixture of Experts (MoE)** replaces each FFN with a pool of `E` experts and a tiny **router** that, for each token, picks the top `k` experts to run. Total parameters grow `E×`, but compute per token grows only `k×`. Done right, an MoE with **4×** the parameters of a dense model has the **same inference speed** but matches a much bigger dense model in quality. **In 2026, MoE is the default frontier-model architecture: DeepSeek-V3, Qwen3-MoE, Llama 4, gpt-oss-120b, Kimi K2 all use it.**
 
 ## 1. Why MoE exists
 
@@ -70,7 +70,7 @@ A **router** decides where each token goes. Common designs:
 - **Hash router** (no learning): just hash the token ID. Surprisingly competitive baseline.
 - **Expert-choice routing**: experts pick top tokens instead of tokens picking experts. Helps with load balance but breaks left-to-right dependency in autoregressive decoding (don't use for LMs).
 
-Top-1 (Switch Transformer) is the simplest. Top-2 (Mixtral) is the sweet spot for quality. Top-4 to top-8 (DeepSeek-V3 with shared + routed experts) is the high end.
+Top-1 (Switch Transformer) is the simplest and is legacy. The 2026 standard is **fine-grained**: many small experts with top-8 routing (DeepSeek-V3: 8 of 256 plus 1 shared; Qwen3-30B-A3B: 8 of 128; Kimi K2: 8 of 384). gpt-oss uses top-4 of 128.
 
 ---
 
@@ -78,7 +78,7 @@ Top-1 (Switch Transformer) is the simplest. Top-2 (Mixtral) is the sweet spot fo
 
 Routers naturally collapse — they like routing all tokens to the same few experts (which become overtrained, getting picked even more). You need a load-balancing pressure.
 
-### Auxiliary loss (Switch Transformer / Mixtral style)
+### Auxiliary loss (Switch Transformer style)
 
 Add to the loss a term that penalizes uneven expert use:
 
@@ -122,14 +122,13 @@ DeepSeek-V3 architecture: `1 shared expert + top-8 of 256 fine-grained routed ex
 
 ## 7. The economics of MoE
 
-| Model | Total params | Active params (per token) | Quality reference |
-|-------|--------------|---------------------------|--------------------|
-| Mixtral-8×7B | 47 B | 13 B | ~Llama 2-70B |
-| Mixtral-8×22B | 141 B | 39 B | ~Llama 3-70B |
-| Qwen3-30B-A3B | 30 B | 3 B | ~Qwen2.5-14B |
-| DeepSeek-V3 | 671 B | 37 B | frontier-class |
-| Llama 4 Scout (rumored) | ~100 B | ~17 B | ~Llama 3.1-70B |
-| GPT-OSS-120B | 120 B | ~5 B | ~Llama 3.1-70B |
+| Model | Total params | Active params (per token) | Experts (routed + shared) | Top-k |
+|-------|--------------|---------------------------|---------------------------|-------|
+| Qwen3-30B-A3B | 30 B | 3 B | 128 | 8 |
+| gpt-oss-120b | 117 B | 5.1 B | 128 | 4 |
+| Llama 4 Scout | 109 B | 17 B | 16 + 1 shared | 1 |
+| DeepSeek-V3 | 671 B | 37 B | 256 + 1 shared | 8 |
+| Kimi K2 | 1 T | 32 B | 384 + 1 shared | 8 |
 
 The numbers tell a story: MoE buys you **2-5×** quality per active param, **at the cost of memory**. If you can store a 671 B model, DeepSeek-V3 runs at the speed of a 37 B dense and the quality of a hundred-billion-class dense. Magic, given the memory.
 
@@ -159,7 +158,7 @@ vLLM, SGLang, and TensorRT-LLM support MoE. But quantization, KV cache, batching
 
 ---
 
-## 9. Mixtral / Qwen3-MoE-style implementation sketch
+## 9. Qwen3-MoE-style implementation sketch
 
 Here is a more realistic implementation using batched expert execution:
 
@@ -199,13 +198,13 @@ class MoEFFN(nn.Module):
         return out.view(B, T, D)
 ```
 
-For real efficiency, replace the inner loops with **`torch.bmm` over a permuted token tensor** (one big batched matmul where each "batch slot" is an expert). Megablocks and the new PyTorch `torch._scaled_mm` + `grouped_gemm` deliver this in hardware-friendly form.
+For real efficiency, replace the inner loops with **`torch.bmm` over a permuted token tensor** (one big batched matmul where each "batch slot" is an expert). Megablocks and PyTorch's `torch._grouped_mm` (used by torchtitan) deliver this in hardware-friendly form.
 
 ---
 
 ## 10. Distillation: the cheaper alternative
 
-Training MoE from scratch is expensive and finicky. A common 2026 path: **train a frontier MoE, then distill its outputs into a small dense model** (Llama 3 used Llama 3.1-405B's outputs to improve smaller siblings). You get most of the quality lift at dense-inference cost.
+Training MoE from scratch is expensive and finicky. A common 2026 path: **train a frontier MoE, then distill its outputs into a small dense model** (Qwen3's small models are distilled from Qwen3-235B-A22B and Qwen3-32B teachers). You get most of the quality lift at dense-inference cost.
 
 If you don't have cluster-scale, distillation > rolling your own MoE every time.
 
@@ -222,7 +221,7 @@ DeepSeek-V3 added a small auxiliary head that predicts not just the next token b
 | You're building... | Use MoE? |
 |---------------------|----------|
 | A 100M-3B model on a single GPU | **No.** Just use dense. Routing overhead isn't worth it. |
-| A 7-30B chat model | **Probably no.** Dense Qwen2.5 / Llama 3 is excellent and simpler. |
+| A 7-30B chat model | **Probably no.** Dense Qwen3 / Gemma 3 is excellent and simpler. |
 | A 70B+ model competing with frontier | **Yes.** MoE is the only way to match frontier dense model quality at acceptable inference cost. |
 | Running on a cluster with strong networking | **Yes** if scale demands. |
 | Running on edge / single GPU | **No.** Memory is the bottleneck and MoE makes it worse. |
@@ -234,7 +233,7 @@ For most readers of this guide: **understand MoE, but build dense**. Pick up MoE
 ## 13. The 2026 cheat sheet
 
 - MoE = top-k routed FFN per layer; total params grow, active params don't.
-- **Top-2** is standard; **fine-grained** (small experts, top-8 of 256) is the new best.
+- **Fine-grained** (many small experts, top-8 of 128-384, plus a shared expert) is the standard; top-2 of 8 is legacy.
 - **Shared experts** (always-on) help a lot.
 - **Auxiliary-loss-free routing** is the modern load-balancer of choice.
 - **Memory is the cost** — MoE needs cluster-scale serving (vLLM + EP).
@@ -247,7 +246,6 @@ For most readers of this guide: **understand MoE, but build dense**. Pick up MoE
 
 - Shazeer et al. 2017 — original MoE paper (top-k softmax router).
 - Fedus et al. 2021 — Switch Transformer (top-1 routing, capacity factor).
-- Mixtral 8×7B technical report (2023).
 - DeepSeek-V2 / V3 papers — fine-grained MoE, shared experts, aux-loss-free routing, MLA, MTP. Dense reading but excellent.
 - Megablocks (Stanford, 2022) — the kernel work that made MoE training fast.
 - DeepEP — DeepSeek's all-to-all kernel library, open-sourced in 2025.

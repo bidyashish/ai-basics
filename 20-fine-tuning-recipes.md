@@ -209,7 +209,7 @@ trainer.save_model("./qwen3-4b-mydomain-qlora")
 After training you have small adapter files (~50-500 MB). Two options at inference:
 
 1. **Merge** the adapter into the base weights (`model.merge_and_unload()`), save full model, serve with vLLM.
-2. **Keep separate**, load base + adapter at runtime. vLLM, TGI, and Fireworks all support hot-swapping LoRA adapters — useful when you have *many* per-customer fine-tunes.
+2. **Keep separate**, load base + adapter at runtime. vLLM, SGLang, and Fireworks all support hot-swapping LoRA adapters — useful when you have *many* per-customer fine-tunes.
 
 ```bash
 # vLLM serving multiple LoRAs on one base

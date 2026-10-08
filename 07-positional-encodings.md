@@ -1,6 +1,6 @@
 # 07 · Positional Encodings — RoPE and the Modern Alternatives
 
-> **TL;DR** Attention by itself is **permutation-invariant**: it doesn't know which token came first. We fix that by encoding position into the queries and keys. **In 2026, RoPE (Rotary Position Embedding) is the universal default**, with **YaRN / NTK-aware scaling** when you want to extend the context window. Older schemes (sinusoidal, learned absolute, ALiBi) are legacy.
+> **TL;DR** Attention by itself is **permutation-invariant**: it doesn't know which token came first. We fix that by encoding position into the queries and keys. **In 2026, RoPE (Rotary Position Embedding) is the universal default**, with **YaRN / NTK-aware scaling** when you want to extend the context window. Older schemes (sinusoidal, learned absolute, ALiBi) are legacy and get one paragraph; **NoPE on some layers** (Llama 4, SmolLM3) is the one live alternative.
 
 ## 1. Why positions need encoding
 
@@ -8,67 +8,21 @@ The attention score between query `q` at position `i` and key `k` at position `j
 
 Three families of fixes exist:
 
-1. **Absolute positional encoding (APE).** Add a position-dependent vector to each token's embedding. Sinusoidal (vanilla transformer) or learned (GPT-2, BERT).
-2. **Relative positional encoding (RPE).** Inject the *distance* between tokens directly into the attention logits. ALiBi, T5-bias.
+1. **Absolute positional encoding (APE).** Add a position-dependent vector to each token's embedding. Sinusoidal (vanilla transformer) or learned (GPT-2, BERT). Legacy.
+2. **Relative positional encoding (RPE).** Inject the *distance* between tokens directly into the attention logits. ALiBi, T5-bias. Legacy.
 3. **Rotary position encoding (RoPE).** Rotate query and key vectors by an angle proportional to their position so that `(q · k)` only depends on `i - j`. **The dominant choice in 2026.**
 
 ---
 
-## 2. Sinusoidal (the OG)
+## 2. The legacy schemes, in one paragraph
 
-The vanilla transformer (Vaswani et al. 2017) used:
-
-```
-PE(pos, 2k)   = sin(pos / 10000^(2k/D))
-PE(pos, 2k+1) = cos(pos / 10000^(2k/D))
-```
-
-So each dim oscillates at a different frequency, uniquely identifying position. Added to the token embedding before the first layer. Simple, works, deterministic — but doesn't extrapolate well to longer contexts and isn't relative.
-
-```python
-def sinusoidal_pe(T, D):
-    pos = torch.arange(T).unsqueeze(1)                # (T, 1)
-    div = torch.exp(torch.arange(0, D, 2) * -(math.log(10000.0) / D))  # (D/2,)
-    pe = torch.zeros(T, D)
-    pe[:, 0::2] = torch.sin(pos * div)
-    pe[:, 1::2] = torch.cos(pos * div)
-    return pe                                          # (T, D)
-```
-
-You won't write this for production, but it's a useful exercise.
+Three older schemes still show up in old checkpoints and papers. **Sinusoidal** (Vaswani 2017) added fixed `sin`/`cos` waves to the embeddings; **learned absolute** (GPT-2, BERT) added an `nn.Embedding(max_T, D)` lookup; **ALiBi** (BLOOM) skipped position vectors and subtracted a per-head slope times `|i - j|` from the attention logits. None of them is used in a 2026 frontier model: the first two cannot extend past their training length, and ALiBi's extrapolation advantage disappeared once YaRN made RoPE extend cleanly. You will not need to implement them; you only need to recognize them when reading legacy code.
 
 ---
 
-## 3. Learned absolute (GPT-2, BERT)
+## 3. RoPE: the rotation trick
 
-Just an `nn.Embedding(max_T, D)` table indexed by position. Easy. Works fine within the trained context window, breaks at longer lengths because positions outside the table are unseen.
-
-```python
-self.pos_embed = nn.Embedding(max_T, D)
-x = self.tok_embed(ids) + self.pos_embed(torch.arange(T, device=ids.device))
-```
-
-GPT-2 stuck with this. GPT-3 too. Modern models have moved on for context-length reasons.
-
----
-
-## 4. ALiBi (Press et al. 2022)
-
-**No positional vectors at all.** Instead, bias the attention logits by the distance between query and key:
-
-```
-attention_logit(i, j) = q_i · k_j  -  m * (i - j)     (for j ≤ i)
-```
-
-`m` is a head-specific slope (different per head, picked to match a geometric progression). The intuition: nearby tokens should attend more, distant ones less. The bias gracefully extrapolates beyond training context length without retraining.
-
-ALiBi was hot for ~18 months (BLOOM used it). It works but is rarely chosen anymore because **RoPE generalizes equally well via YaRN, with cleaner relative-position math**.
-
----
-
-## 5. RoPE: the rotation trick
-
-**Rotary Position Embedding** (Su et al. 2021) is now ubiquitous: GPT-NeoX, Llama 1-3, Mistral, Mixtral, Qwen, DeepSeek, Phi, Gemma, ChatGLM — all use it.
+**Rotary Position Embedding** (Su et al. 2021) is now ubiquitous: Llama 3/4, Qwen3 / Qwen3.6, DeepSeek-V3, Gemma 3/4, gpt-oss, Kimi K2 — every current open model uses it.
 
 ### The idea
 
@@ -92,7 +46,7 @@ So a rotated dot product naturally encodes relative distance.
 θ_d = base^(-2d / D)        for d in [0, D/2)
 ```
 
-`base = 10000` is the original choice. `base = 500_000` (Llama 3) or `base = 1_000_000` (Qwen2.5, long-context configs) extends the effective range — long-context models tune `base` upward.
+`base = 10000` is the original choice. `base = 500_000` (Llama 3) or `base = 1_000_000` (Qwen3, long-context configs) extends the effective range — long-context models tune `base` upward.
 
 Pair index 0 spins fastest (high frequency, captures fine local position). Pair index `D/2 - 1` spins slowest (low frequency, captures coarse "where in the document" info).
 
@@ -146,7 +100,7 @@ Both produce equivalent attention scores **if you train and infer with the same 
 
 ---
 
-## 6. Extending RoPE to longer contexts
+## 4. Extending RoPE to longer contexts
 
 RoPE generalizes nicely *within* the trained context. Beyond it, the high-frequency rotations alias and quality drops. Several recipes exist:
 
@@ -175,25 +129,21 @@ Often works zero-shot (no fine-tune), at the cost of some quality.
 The 2026 favorite. Combines NTK-aware scaling with a frequency-dependent ramp: stretch low frequencies aggressively, leave high frequencies near-original. Add a small attention temperature correction. With ~100M tokens of fine-tuning, you can extend a model from 8k → 128k+ context.
 
 ```python
-# pseudo-config used by Llama 3 / Qwen2.5 long context
+# config.json snippet Qwen3 ships to go from 32k native to 131k context
 {
   "rope_scaling": {
-    "type": "yarn",
-    "factor": 16.0,
-    "original_max_position_embeddings": 8192,
-    "extrapolation_factor": 1.0,
-    "attn_factor": 1.0,
-    "beta_fast": 32,
-    "beta_slow": 1
+    "rope_type": "yarn",
+    "factor": 4.0,
+    "original_max_position_embeddings": 32768
   }
 }
 ```
 
-The `transformers` library applies this when building cosine/sine tables.
+The `transformers` library applies this when building cosine/sine tables; `beta_fast`, `beta_slow`, and `attn_factor` have good defaults you rarely touch. vLLM and SGLang read the same keys.
 
 ### Llama-3-style "by-parts" scaling
 
-Llama 3.1 introduced an explicit by-parts piecewise scaling: high-freq untouched, low-freq fully PI-scaled, medium-freq smoothly transitioned. Cleaner than NTK-aware in practice. Adopted by Llama-3.1-8B/70B, Qwen 2.5-7B-1M.
+Llama 3.1 introduced an explicit by-parts piecewise scaling: high-freq untouched, low-freq fully PI-scaled, medium-freq smoothly transitioned. Cleaner than NTK-aware in practice. Used by Llama 3.1 through Llama 4 (`"rope_type": "llama3"` in `config.json`).
 
 ### Putting it together
 
@@ -201,19 +151,19 @@ For your own model, pick context based on:
 
 - **Train at 4k-8k** for compute efficiency.
 - **Anneal at 32k-128k** with a YaRN-rescaled RoPE for the last few B tokens of pretraining.
-- For inference at 1M context (Qwen 2.5-1M, GPT-4.1), apply **dual-chunk attention** + **YaRN** + a separate long-context fine-tune.
+- For inference at 1M context (Qwen3.6: 262k native, YaRN factor 4 to 1M), apply **YaRN** plus a separate long-context fine-tune. Frontier APIs (the GPT-6 family serves a 1.05M window) ship this built in.
 
 ---
 
-## 7. NoPE: do you even need positions?
+## 5. NoPE: do you even need positions?
 
-Surprising 2024-2025 finding: a **causal** transformer with no positional encoding at all (NoPE) can still learn position implicitly from the causal mask. Very small models do worse without RoPE; very large ones can compensate. Some research models (TransNormer, RWKV-7, retentive) use NoPE successfully.
+A **causal** transformer with no positional encoding at all (NoPE) can still learn position implicitly from the causal mask. In 2026 this is used *per layer*, not model-wide: Llama 4 interleaves NoPE global-attention layers between RoPE layers (iRoPE), and SmolLM3 drops RoPE in every 4th layer. The NoPE layers extrapolate better to unseen lengths; the RoPE layers keep short-range precision.
 
-In practice, NoPE is a research curiosity — RoPE is essentially free to compute and reliable. Use RoPE.
+For your own model: RoPE everywhere by default. Try NoPE on a quarter of the layers only if you are chasing long-context extrapolation and can afford the ablation.
 
 ---
 
-## 8. RoPE in attention — the full mini-block
+## 6. RoPE in attention — the full mini-block
 
 ```python
 import torch, torch.nn as nn, math
@@ -251,20 +201,18 @@ This is 95% of every modern attention block. The extra 5% (KV cache, GQA) we cov
 
 ---
 
-## 9. Comparison cheat sheet
+## 7. Comparison cheat sheet
 
 | Scheme | Year | Where it lives | Extrapolation | Used by (2026) |
 |--------|------|----------------|---------------|----------------|
-| Sinusoidal | 2017 | added to embeddings | OK | almost no one |
-| Learned APE | 2018 | added to embeddings | bad | GPT-2/3 (legacy) |
-| ALiBi | 2021 | logit bias | great | BLOOM (legacy) |
-| **RoPE** | 2021 | rotates Q & K | OK; great with YaRN | **everyone** |
-| RoPE + YaRN | 2023 | rotates Q & K, scaled | excellent | Llama 3.1+, Qwen 2.5+, Mistral, DeepSeek |
-| NoPE | 2023 | nothing | so-so | research only |
+| **RoPE** | 2021 | rotates Q & K | OK; great with YaRN | **every current open model** |
+| RoPE + YaRN | 2023 | rotates Q & K, scaled | excellent | Qwen3 / Qwen3.6, Llama 3.1+, DeepSeek-V3, Gemma 3 |
+| NoPE (some layers) | 2023 | nothing | best | Llama 4 iRoPE, SmolLM3 |
+| Sinusoidal / learned / ALiBi | 2017-2021 | embeddings or logit bias | poor / poor / good | legacy only |
 
 ---
 
-## 10. A 2026 cheat sheet
+## 8. A 2026 cheat sheet
 
 - **Use RoPE.** Pick `base = 500k-1M` for training contexts ≥ 8k. The default `10k` is for 2k-context relics.
 - **YaRN** to extend at inference / fine-tune time. Set `factor = target_T / train_T`.
@@ -280,6 +228,7 @@ This is 95% of every modern attention block. The extra 5% (KV cache, GQA) we cov
 - Peng et al. 2023 — YaRN paper.
 - "Extending Context Window of LLMs via Position Interpolation," Chen et al. 2023.
 - The HuggingFace `modeling_llama.py` — read `apply_rotary_pos_emb` once and the whole abstraction collapses.
+- Llama 4 release blog (iRoPE) and the SmolLM3 blog post — how NoPE layers are mixed into RoPE models in practice.
 - Eleuther.ai blog post on NTK-aware scaling — best intuitive write-up.
 
 Next: **[08-attention-mechanisms.md](./08-attention-mechanisms.md)** — the heart of the transformer.

@@ -41,8 +41,8 @@ Activation क्यों? बिना उसके, neurons को stack क�
 | **ReLU** | `max(0, x)` | hockey stick | Hidden layers के लिए default. तेज़। |
 | **Sigmoid** | `1 / (1 + e^-x)` | 0 से 1 तक S-curve | Old-school, एक class की probability output करना। |
 | **Tanh** | `(e^x - e^-x) / (e^x + e^-x)` | -1 से 1 तक S-curve | कभी-कभी RNNs में use होता है। |
-| **GELU** | `x * Φ(x)` (Gaussian CDF) | Smooth ReLU | Transformers (BERT, GPT-2) में standard। |
-| **SiLU / Swish** | `x * sigmoid(x)` | Smooth ReLU | Llama, Qwen में SwiGLU के अंदर use होता है। |
+| **GELU** | `x * Φ(x)` (Gaussian CDF) | Smooth ReLU | Gemma के GeGLU FFN और vision encoders (SigLIP) में। |
+| **SiLU / Swish** | `x * sigmoid(x)` | Smooth ReLU | Llama, Qwen3, DeepSeek में SwiGLU के अंदर use होता है। |
 
 Useful instinct: **modern LLMs अब अपने feed-forward blocks में ReLU shayad ही use करते हैं**। SiLU और GELU dominate करते हैं क्योंकि उनके smooth gradients ज़्यादा stably train करते हैं।
 

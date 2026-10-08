@@ -1,6 +1,6 @@
 # 05 · Model Scale — Size, Data, और Compute
 
-> **TL;DR** Model **quality** smoothly तीन चीज़ों से scale करती है: parameter count `N`, training tokens `D`, और compute `C ≈ 6 N D`। **Chinchilla** ने कहा था कि `D ≈ 20 × N` *training cost के लिए* compute-optimal है। 2026 में कोई Chinchilla-optimal train नहीं करता — small models deliberately **over-trained** हैं (Llama 3.1-8B ने 15T tokens देखे, Qwen2.5-7B ने 18T) क्योंकि cheap inference cheap training से ज़्यादा matter करता है। साथ ही, **test-time compute** (long chain-of-thought) एक दूसरा axis खोलता है: एक small model जो ज़्यादा देर तक सोचता है, अक्सर एक big वाले को beat करता है जो तुरंत answer देता है।
+> **TL;DR** Model **quality** smoothly तीन चीज़ों से scale करती है: parameter count `N`, training tokens `D`, और compute `C ≈ 6 N D`। **Chinchilla** ने कहा था कि `D ≈ 20 × N` *training cost के लिए* compute-optimal है। 2026 में कोई Chinchilla-optimal train नहीं करता — small models deliberately **over-trained** हैं (Llama 3.1-8B ने 15T tokens देखे, Qwen3-8B ने 36T) क्योंकि cheap inference cheap training से ज़्यादा matter करता है। साथ ही, **test-time compute** (long chain-of-thought) एक दूसरा axis खोलता है: एक small model जो ज़्यादा देर तक सोचता है, अक्सर एक big वाले को beat करता है जो तुरंत answer देता है।
 
 ## 1. Scaling-law Mental Model
 
@@ -65,12 +65,10 @@ Chinchilla **सिर्फ़ training cost** को optimize करता ह
 | Model | Params N | Training tokens D | Tokens / param |
 |-------|----------|-------------------|----------------|
 | Chinchilla 2022 | 70 B | 1.4 T | 20 |
-| Llama 2-7B | 7 B | 2 T | ~290 |
-| Llama 3-8B | 8 B | 15 T | ~1900 |
 | Llama 3.1-8B | 8 B | 15 T | ~1900 |
-| Qwen2.5-7B | 7 B | 18 T | ~2600 |
+| Qwen3-8B | 8 B | 36 T | ~4400 |
 | Qwen3-4B | 4 B | 36 T | ~9000 |
-| SmolLM2-1.7B | 1.7 B | 11 T | ~6500 |
+| SmolLM3-3B | 3 B | 11 T | ~3700 |
 
 Chinchilla से loss-per-FLOP बदतर है — लेकिन **loss-per-inference-FLOP** *much* better है। Beyond-Chinchilla paper (Sardana et al. 2023) ने इसे formalize किया: inference-aware budget के लिए optimal `D/N` easily 10-100× हो सकता है।
 
@@ -88,9 +86,9 @@ Examples:
 - 1B model को 100B tokens पर train करो: `6 × 1e9 × 1e11 = 6e20` FLOPs।
 - एक H100 ~1e15 BF16 FLOPs/s sustained (~30% of peak) करता है।
 - → 6e20 / 1e15 = 6e5 seconds = ~7 GPU-days।
-- 8 H100s पर good DDP के साथ: ~1 day।
+- 8 H100s पर FSDP2 के साथ: ~1 day।
 
-7B model 2T tokens पर: `6 × 7e9 × 2e12 = 8.4e22` FLOPs। ~8.4e22 / 1e15 ≈ 1000 GPU-days। 256 H100s पर, ~4 days। ये roughly वो है जो Llama 2-7B-class model train करने में लगता है।
+7B model 2T tokens पर: `6 × 7e9 × 2e12 = 8.4e22` FLOPs। ~8.4e22 / 1e15 ≈ 1000 GPU-days। 256 H100s पर, ~4 days। ये वो है जो 2023-era 7B pretrain में लगा; 2026 models 10-18× ज़्यादा tokens देखते हैं।
 
 ये back-of-envelope ज़्यादातर experiments plan करने के लिए काफ़ी है। **`C = 6ND` memorize करो।**
 
@@ -139,7 +137,7 @@ Practical implication: **एक sudden phase transition पर bet मत लग
 
 ## 7. Test-time Compute: दूसरा Axis
 
-2025 में OpenAI के o1 और DeepSeek R1 ने ये obvious बना दिया: **एक model जो ज़्यादा देर सोचता है, एक much larger model को outperform कर सकता है जो एक बार सोचता है**।
+OpenAI के o1 (2024) और DeepSeek-R1 (2025) ने ये obvious बना दिया: **एक model जो ज़्यादा देर सोचता है, एक much larger model को outperform कर सकता है जो एक बार सोचता है**।
 
 कैसे: model को chain-of-thought (CoT) traces के साथ train करो; inference पर, उसे answer से पहले hundreds या thousands "thinking" tokens generate करने दो। ये per query ज़्यादा inference compute cost करता है लेकिन और training compute नहीं।
 
@@ -151,6 +149,8 @@ Reasoning-model papers (DeepSeek-R1, Tülu 3 with verifiable rewards, OpenR1) �
 
 Practically, इसका मतलब scale अब सिर्फ़ `N`, `D`, `C_train` नहीं है। एक चौथा axis `C_test` (per query generated tokens) है। Test-time compute के लिए scaling laws अब exist करते हैं (OpenAI का "scaling reasoning" report, DeepMind का "Scaling Inference-Time Compute")।
 
+2026 में एक पांचवां knob आया: **depth recurrence**। एक looped transformer (chapter 10 §11) same blocks को कई passes के लिए reuse करता है, तो एक model बिना ज़्यादा parameters और बिना ज़्यादा tokens emit किए per token ज़्यादा compute spend कर सकता है। The Information ने report किया कि GPT-6 Astra इसी तरह काम करता है; open evidence (Geiping et al. 2025, Ouro) दिखाता है कि 1-4B scale पर effect real है।
+
 ---
 
 ## 8. अपने Project के लिए N, D, C Pick करना
@@ -158,13 +158,13 @@ Practically, इसका मतलब scale अब सिर्फ़ `N`, `D`,
 कुछ quick prescriptions:
 
 ### "मैं कुछ small सीखना / replicate करना चाहता हूं"
-- **N = 100M-500M, D = 10B-30B**। Single GPU node पर hours में train होता है, perfectly capable readable English produce करने का। Reference: nanoGPT, SmolLM, MicroLlama।
+- **N = 100M-500M, D = 10B-30B**। Single GPU node पर hours में train होता है, perfectly capable readable English produce करने का। Reference: nanochat, SmolLM3, OLMo 3।
 
 ### "मुझे fine-tuning के लिए useful base model चाहिए, single-node budget"
 - **N = 1B-3B, D = 100-300B tokens।** FineWeb-Edu + StarCoder2 use करो। 8× H100 पर 1-2 weeks में train होता है। Result 2023 के 7B models के साथ rivals।
 
 ### "मुझे 2026 में competitive chat model चाहिए"
-- **N = 4B-14B, D = 4-15T tokens।** Cluster-scale (64+ H100) चाहिए। Pretraining के बाद, SFT + DPO/KTO करो। Qwen2.5/Llama-3.1 territory match करो।
+- **N = 4B-14B, D = 4-15T tokens।** Cluster-scale (64+ H100) चाहिए। Pretraining के बाद, SFT + DPO/KTO करो। Qwen3-8B territory match करो।
 
 ### "मुझे reasoning model चाहिए"
 - एक strong base से start करो। Verifiable rewards के साथ RL apply करो (math/code के लिए RLHF replaced by RLVR)। 7-32B params often काफी हैं।
@@ -180,10 +180,10 @@ Fixed N के अंदर, आप layers `L`, model dim `D`, heads `H`, और
 
 | Model | L | D | H | F | N |
 |-------|---|---|---|---|---|
-| Llama-3.2-1B | 16 | 2048 | 32 | 8192 | 1.2 B |
-| Llama-3-8B | 32 | 4096 | 32 | 14336 | 8 B |
-| Qwen2.5-7B | 28 | 3584 | 28 | 18944 | 7 B |
-| Qwen2.5-14B | 48 | 5120 | 40 | 13824 | 14 B |
+| Qwen3-0.6B | 28 | 1024 | 16 | 3072 | 0.6 B |
+| Llama-3.1-8B | 32 | 4096 | 32 | 14336 | 8 B |
+| Qwen3-8B | 36 | 4096 | 32 | 12288 | 8.2 B |
+| Qwen3-32B | 64 | 5120 | 64 | 25600 | 32.8 B |
 | DeepSeek-V3-base | 61 | 7168 | 128 | 18432* (MoE) | 671 B (37 B active) |
 
 *DeepSeek-V3 shared + routed experts के साथ MoE use करता है, chapter 13 देखो।
@@ -244,8 +244,7 @@ Run, evaluate (chapter 14), iterate. ये एक real, achievable 2026 weekend
 
 - Hoffmann et al. 2022 — "Training Compute-Optimal LLMs" (Chinchilla)। Optimum समझने के लिए एक बार पढ़ो।
 - Sardana et al. 2023 — "Beyond Chinchilla-Optimal," inference-aware version।
-- Hoffmann et al. 2025 — modern architectures के लिए updated scaling-law fits।
 - DeepSeek-V3 technical report — MoE के साथ modern compute-budget arithmetic।
-- Llama 3, Qwen 2.5, Qwen3 technical reports — real teams द्वारा use किए गए real recipes।
+- Qwen3, SmolLM3, और OLMo 3 technical reports — real teams द्वारा use किए गए real recipes।
 
 Next: **[06-tokenization-embeddings.md](./06-tokenization-embeddings.md)** — text को numbers में बदलना।

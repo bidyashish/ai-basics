@@ -6,12 +6,12 @@
 
 CPU में strong cores की small number (8-128) होती है जो branchy, sequential code के लिए optimized हैं। GPU में हज़ारों weak cores हैं जो एक साथ कई data elements पर same instruction run करने के लिए designed हैं — **SIMT** (Single Instruction, Multiple Threads)। "इस multiply-add को billion बार करो" के लिए, GPU CPU को breakfast में खा जाता है। "इस JSON को parse करो और decide करो क्या करना है" के लिए, CPU जीतता है।
 
-A modern training-class GPU (H100, A100, RTX 4090) में है:
+A modern training-class GPU (B200, H100, RTX 5090) में है:
 
 - **Compute units** ("Streaming Multiprocessors", या SMs) — उनमें से 100+।
 - **CUDA cores** हर SM के अंदर — general fp32/fp64 math के लिए।
 - **Tensor Cores** हर SM के अंदर — special hardware for **matrix multiply-accumulate** at low precision (fp16, bf16, fp8, int8)। Matmul के लिए CUDA cores से vastly faster।
-- **HBM** (high-bandwidth memory) — modern GPUs पर 24-80 GB।
+- **HBM** (high-bandwidth memory) — datacenter GPUs पर 80-192 GB, consumer cards पर 24-32 GB।
 - **L2 cache** — SMs के across share होने वाले tens of MB।
 - **Shared memory / L1** — small, very fast, per-SM scratchpad।
 - **Registers** — fastest, per-thread।
@@ -28,15 +28,18 @@ A modern training-class GPU (H100, A100, RTX 4090) में है:
 
 आपको पूरा spec sheet memorize नहीं करना, लेकिन order of magnitude जानना reasoning में help करता है।
 
-| Metric | A100 (40 GB) | H100 (80 GB) | RTX 4090 |
-|--------|--------------|--------------|----------|
-| FP16/BF16 TFLOPS (Tensor Cores) | 312 | ~1000 | 165 |
-| FP8 TFLOPS | n/a | ~2000 | n/a |
-| HBM bandwidth | 1.6 TB/s | 3.4 TB/s | 1.0 TB/s (GDDR6X) |
-| Memory | 40-80 GB | 80 GB | 24 GB |
+| Metric | H100 (80 GB) | B200 (192 GB) | RTX 5090 |
+|--------|--------------|---------------|----------|
+| FP16/BF16 TFLOPS (Tensor Cores, dense) | ~1000 | ~2250 | ~210 |
+| FP8 TFLOPS (dense) | ~2000 | ~4500 | ~420 |
+| FP4 TFLOPS (dense) | n/a | ~9000 | ~840 |
+| HBM bandwidth | 3.4 TB/s | 8 TB/s | 1.8 TB/s (GDDR7) |
+| Memory | 80 GB | 192 GB | 32 GB |
+
+RTX 5090 figures fp32 accumulate के साथ हैं; marketing "AI TOPS" numbers sparsity और fp16 accumulate count करते हैं।
 
 Takeaway:
-- एक H100 roughly **a quadrillion (10¹⁵) ops per second** bf16 में करता है।
+- एक H100 roughly **a quadrillion (10¹⁵) ops per second** bf16 में करता है; एक B200 उसका दोगुना करता है, और fp4 उसे फिर दोगुना कर देता है।
 - Memory fast है लेकिन compute faster है। हर weight को HBM से compute units में read करना often bottleneck है।
 
 ---
@@ -85,7 +88,8 @@ Tensor Cores lower precision पर faster run होते हैं। Memory 
 | tf32 | 19 | fp32 range | A100+ default for fp32 matmul; slightly less precise |
 | fp16 | 16 | small (±65k) | Inference, training with loss scaling |
 | bf16 | 16 | fp32 range | **Modern training का default** |
-| fp8 | 8 | small | Cutting-edge training (H100), inference |
+| fp8 | 8 | small | Training at scale (DeepSeek-V3 recipe); inference default on H100/B200 |
+| fp4 / NVFP4 | 4 | tiny (block-scaled) | Blackwell inference; experimental training |
 | int8 | 8 | -128 to 127 | Quantized inference |
 | int4 | 4 | -8 to 7 | Heavy quantized inference (chapter 12) |
 
@@ -107,7 +111,7 @@ Inference के लिए, **int4** weight quantization हर जगह है
 
 जब `a @ b` run होता है, matmul kernel launch हो सकता है grid `(M/128, N/128)` और block `(256,)` के साथ — मतलब हर block result का 128×128 tile compute करता है, 256 threads cooperating के साथ।
 
-अगर आप कभी अपने khud के kernels लिखना चाहो, today का pragmatic path **Triton** है (Python-like, JIT-compiled, raw CUDA से much friendlier)। Flash Attention v2 originally Triton में लिखा गया था।
+अगर आप कभी अपने khud के kernels लिखना चाहो, today का pragmatic path **Triton** है (Python-like, JIT-compiled, raw CUDA से much friendlier)। FlashAttention एक official Triton port ship करता है, और vLLM और SGLang के अंदर most custom kernels Triton हैं।
 
 ---
 
@@ -220,7 +224,7 @@ Modern LLM training में ज़्यादातर performance gains छ�
 | OOM | Activations या KV cache | Activation checkpointing, smaller batch, FSDP |
 | Slow first iteration | Kernel autotuning, cuDNN benchmarking | Expected, ignore (या एक बार `torch.backends.cudnn.benchmark=True` set करो) |
 | कुछ steps के बाद `nan` | fp16 overflow | bf16 use करो, या loss scaling add करो |
-| Single GPU saturated, और available | No data parallelism | DDP/FSDP use करो |
+| Single GPU saturated, और available | No data parallelism | FSDP2 use करो |
 
 ---
 

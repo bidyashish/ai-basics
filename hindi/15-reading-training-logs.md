@@ -429,7 +429,7 @@ A panel layout जो long run के एक hour के अंदर ख़ु�
 
 - W&B docs का "LLM training" guide।
 - **`torchtitan`** logs — एक serious distributed-training setup क्या track करता है इसका public reference।
-- OLMo / SmolLM-2 / Llama 3 training reports — वो often अपनी actual W&B charts publish करते हैं, "अच्छा कैसा दिखता है" के लिए excellent calibration।
+- OLMo 3 / SmolLM3 training reports — वो often अपनी actual W&B charts publish करते हैं, "अच्छा कैसा दिखता है" के लिए excellent calibration।
 - **`wandb-sweeps`** small-scale ablations पर hyperparameter optimization के लिए।
 
 That's curriculum का end. **अब कुछ train करो और charts पढ़ो।**

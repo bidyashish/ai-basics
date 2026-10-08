@@ -429,7 +429,7 @@ If any of those is off, **stop and fix now**. A 4-day run started wrong is a 4-d
 
 - The W&B docs' "LLM training" guide.
 - **`torchtitan`** logs — a public reference for what a serious distributed-training setup tracks.
-- The OLMo / SmolLM-2 / Llama 3 training reports — they often publish their actual W&B charts, an excellent calibration for "what good looks like."
+- The OLMo 3 / SmolLM3 training reports — they often publish their actual W&B charts, an excellent calibration for "what good looks like."
 - **`wandb-sweeps`** for hyperparameter optimization on small-scale ablations.
 
 That's the end of the curriculum. **Now go train something and read the charts.**

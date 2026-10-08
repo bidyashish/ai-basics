@@ -1,6 +1,6 @@
 # 12 · Quantization — Make Models Small and Fast
 
-> **TL;DR** Quantization replaces fp16/bf16 weights with smaller integers (or low-bit floats) so they take less memory and load faster from HBM. Since LLM **inference** is memory-bound, this is the biggest single inference win available. **In 2026 the practical defaults are: GGUF Q4_K_M for laptop / CPU, AWQ-int4 or GPTQ-int4 for GPU, FP8 for top-end H100/B200 deployments, and NVFP4 or BitNet 1.58-bit for the bleeding edge.**
+> **TL;DR** Quantization replaces fp16/bf16 weights with smaller integers (or low-bit floats) so they take less memory and load faster from HBM. Since LLM **inference** is memory-bound, this is the biggest single inference win available. **In 2026 the practical defaults are: GGUF Q4_K_M for laptop / CPU, AWQ-int4 or GPTQ-int4 for GPU, FP8 for top-end H100/B200 deployments, and NVFP4 on Blackwell.**
 
 ## 1. The mental model
 
@@ -27,7 +27,7 @@ If we choose the scale carefully and accept tiny precision loss, the model behav
 ### Post-training (PTQ) vs quantization-aware training (QAT)
 
 - **PTQ**: take a trained model, quantize after the fact with a small calibration dataset. Cheap, fast, the default in 2026.
-- **QAT**: simulate quantization during training so the model learns to be robust. More expensive, used by BitNet-style models that quantize to extreme bit widths.
+- **QAT**: simulate quantization during training so the model learns to be robust. More expensive; used when PTQ at int4/fp4 loses too much (Gemma 3 ships official QAT checkpoints).
 
 ---
 
@@ -91,13 +91,6 @@ Storage: `W_int4` is 4 bits per element, `scales` and `zeros` add ~1% overhead. 
 - 4-bit floating point (E2M1) with hardware support on B100/B200.
 - Better range than int4, dramatic speedups.
 - Supported in production stacks (TensorRT-LLM, vLLM) on Blackwell GPUs.
-
-### BitNet b1.58 (1.58-bit)
-
-- Extreme: ternary weights `{-1, 0, +1}` (`log₂(3) ≈ 1.58 bits`).
-- Requires **training from scratch** with ternary-aware optimization (QAT).
-- Microsoft's BitNet b1.58 (2024) and follow-up work show 7B-class models match fp16 quality at 1.58 bits.
-- 2026 follow-ups (`BitNet a4.8`, `MS-Models`) push to 8-bit activations + 1.58-bit weights, with kernels that beat fp16 inference on CPU.
 
 ### Mixed quantization (e.g., int4 weights + int8 activations + fp16 LM head)
 
@@ -225,7 +218,7 @@ The `kv-cache-dtype fp8` is independent of weight quantization — it can be on 
 
 ## 10. Quality vs size — what to expect
 
-Approximate average benchmark drop vs fp16, for Llama / Qwen-class 7B models (your mileage varies):
+Approximate average benchmark drop vs fp16, for Qwen3-8B-class models (your mileage varies):
 
 | Format | Bits/weight | Memory | Quality drop |
 |--------|-------------|--------|--------------|
@@ -238,7 +231,6 @@ Approximate average benchmark drop vs fp16, for Llama / Qwen-class 7B models (yo
 | GGUF Q4_K_M | ~4.7 | 0.29× | 0.5-1% |
 | GGUF IQ3_XXS | ~3.0 | 0.20× | 1-3% |
 | GGUF Q2_K | ~2.6 | 0.18× | 3-7% |
-| BitNet 1.58 | 1.58 | 0.1× | (similar to fp16, but requires retraining) |
 
 For most use cases, **Q4_K_M / AWQ-int4 is the sweet spot** — model fits in 4× less memory at <1% quality cost. Below 4 bits, quality starts to wobble unless the model was trained for it.
 
@@ -317,7 +309,6 @@ Memory: ~5 GB for weights + KV cache. Throughput: ~8000 tokens/sec on an H100. Q
 - **High-end production (H100/B200):** FP8 weights + FP8 KV cache, via vLLM or TensorRT-LLM.
 - **Long context:** quantize the KV cache (`--kv-cache-dtype fp8`).
 - **Fine-tuning on 1 GPU:** QLoRA (NF4 + LoRA bf16).
-- **Train-from-scratch ultra-low-bit:** BitNet b1.58 — niche but real.
 - **Always measure** on *your* benchmarks; quantization quality is task-dependent.
 
 ---
@@ -327,7 +318,6 @@ Memory: ~5 GB for weights + KV cache. Throughput: ~8000 tokens/sec on an H100. Q
 - Frantar et al. 2022 — **GPTQ** paper.
 - Lin et al. 2023 — **AWQ** paper.
 - Dettmers et al. 2023 — **QLoRA**.
-- Microsoft 2024 — **BitNet b1.58: The Era of 1-bit LLMs.**
 - The `llama.cpp` README's "Quantization formats" table — best quick reference for GGUF.
 - vLLM and TensorRT-LLM quantization docs — most up-to-date practical guides.
 

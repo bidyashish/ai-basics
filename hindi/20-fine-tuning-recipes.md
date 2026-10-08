@@ -209,7 +209,7 @@ trainer.save_model("./qwen3-4b-mydomain-qlora")
 Training के बाद आपके पास small adapter files (~50-500 MB) हैं। Inference पर दो options:
 
 1. Adapter को base weights में **Merge** करो (`model.merge_and_unload()`), full model save करो, vLLM के साथ serve करो।
-2. **Separate रखो**, runtime पर base + adapter load करो। vLLM, TGI, और Fireworks सब LoRA adapters का hot-swapping support करते हैं — useful जब आपके पास *कई* per-customer fine-tunes हों।
+2. **Separate रखो**, runtime पर base + adapter load करो। vLLM, SGLang, और Fireworks सब LoRA adapters का hot-swapping support करते हैं — useful जब आपके पास *कई* per-customer fine-tunes हों।
 
 ```bash
 # vLLM एक base पर multiple LoRAs serve करते हुए
